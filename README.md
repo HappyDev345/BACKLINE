@@ -19,6 +19,7 @@ Stack: **React + Vite** (frontend) · **Supabase** (PostgreSQL, Auth, Storage, R
 | Forum | Category-organised threads with replies |
 | Messages | Realtime 1:1 conversations (Supabase Realtime) |
 | Notifications | Like / comment / follow / message alerts, unread badge, mark-all-read |
+| Landing page | Public homepage introducing BACKLINE and linking into projects, people, discussions and the community |
 
 Phase 6 items (thorough security testing, accessibility audit, backups, performance
 work) are intentionally left for you — see the checklist at the bottom.
@@ -83,7 +84,7 @@ backline/
 │   └── schema.sql              # tables, RLS policies, triggers, storage
 ├── src/
 │   ├── main.jsx                # router + auth provider bootstrap
-│   ├── App.jsx                 # routes + global auth modal
+│   ├── App.jsx                 # landing page, app routes + global auth modal
 │   ├── index.css               # the whole design system (dark navy / blue-purple)
 │   ├── lib/
 │   │   ├── supabase.js         # Supabase client (reads .env)
@@ -99,6 +100,7 @@ backline/
 │   │   ├── ProjectModal.jsx    # project details + express interest
 │   │   └── PostCard.jsx        # post + like + comments
 │   └── pages/
+│       ├── LandingPage.jsx     # public homepage
 │       ├── FeedPage.jsx
 │       ├── DiscoverPage.jsx    # search + filters + new project
 │       ├── PeoplePage.jsx
@@ -107,6 +109,10 @@ backline/
 │       ├── ForumPage.jsx       # categories, threads, replies
 │       └── NotificationsPage.jsx
 ```
+
+The public homepage is at `/`. The signed-in community feed is at `/feed`; the
+other app areas remain available at `/discover`, `/people`, `/forum`, and the
+existing profile, messaging, and notification routes.
 
 ## Known simplifications (fine for a major work, tighten before "launch")
 
