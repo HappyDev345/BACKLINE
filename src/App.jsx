@@ -24,9 +24,9 @@ export default function App() {
   return (
     <>
       {/* The community pages share a navigation bar; the landing page has its own. */}
-      {!isLandingPage && <NavBar onSignIn={promptSignIn} />}
       {/* This label reminds visitors that preview edits are temporary. */}
       {isDemoMode && <div className="demo-banner" role="status">Preview mode · sample content only; changes reset when you refresh.</div>}
+      {!isLandingPage && <NavBar onSignIn={promptSignIn} />}
       {/* Each Route pairs a web address with the page component that handles it. */}
       <Routes>
         <Route path="/" element={<LandingPage onSignIn={promptSignIn} />} />

@@ -45,36 +45,45 @@ export default function NavBar({ onSignIn }) {
 
   return (
     <nav className="nav">
-      <NavLink to="/" className="brand"><span className="brand-mark" aria-hidden="true"><img src={logo} alt="" /></span>BACKLINE</NavLink>
-      <button
-        className="nav-menu-toggle"
-        type="button"
-        aria-label={menuOpen ? 'Close navigation' : 'Open navigation'}
-        aria-expanded={menuOpen}
-        aria-controls="community-nav-links"
-        onClick={() => setMenuOpen((open) => !open)}
-      >
-        {menuOpen ? '×' : '☰'}
-      </button>
-      <div id="community-nav-links" className={'nav-links' + (menuOpen ? ' is-open' : '')}>
-        <NavLink to="/feed" onClick={() => setMenuOpen(false)}>Feed</NavLink>
-        <NavLink to="/discover" onClick={() => setMenuOpen(false)}>Discover</NavLink>
-        <NavLink to="/people" onClick={() => setMenuOpen(false)}>People</NavLink>
-        <NavLink to="/forum" onClick={() => setMenuOpen(false)}>Forum</NavLink>
-        <NavLink to="/messages" onClick={() => setMenuOpen(false)}>Messages</NavLink>
-        <NavLink to="/notifications" className="bell-wrap" aria-label={`Notifications${unread > 0 ? `, ${unread} unread` : ''}`} onClick={() => setMenuOpen(false)}>
-          &#128276;
-          {unread > 0 && <span className="badge-dot">{unread}</span>}
-        </NavLink>
-      </div>
-      {session && profile ? (
-        <div className="nav-user">
-          <NavLink to={'/profile/' + profile.id}><Avatar profile={profile} /></NavLink>
-          <button className="btn btn-ghost btn-sm" onClick={async () => { await signOut(); setMenuOpen(false); navigate('/') }}>Sign out</button>
+      <div className="nav-inner">
+        <NavLink to="/" className="brand"><span className="brand-mark" aria-hidden="true"><img src={logo} alt="" /></span>BACKLINE</NavLink>
+        <div id="community-nav-links" className={'nav-links' + (menuOpen ? ' is-open' : '')}>
+          <NavLink to="/feed" onClick={() => setMenuOpen(false)}>Feed</NavLink>
+          <NavLink to="/discover" onClick={() => setMenuOpen(false)}>Discover</NavLink>
+          <NavLink to="/people" onClick={() => setMenuOpen(false)}>People</NavLink>
+          <NavLink to="/forum" onClick={() => setMenuOpen(false)}>Forum</NavLink>
+          <NavLink to="/messages" onClick={() => setMenuOpen(false)}>Messages</NavLink>
+          <NavLink
+            to="/notifications"
+            className={({ isActive }) => 'bell-wrap' + (isActive ? ' active' : '')}
+            aria-label={`Notifications${unread > 0 ? `, ${unread} unread` : ''}`}
+            onClick={() => setMenuOpen(false)}
+          >
+            &#128276;
+            {unread > 0 && <span className="badge-dot">{unread}</span>}
+          </NavLink>
         </div>
-      ) : (
-        <button className="btn btn-sm" onClick={() => { setMenuOpen(false); onSignIn() }}>Sign in</button>
-      )}
+        <div className="nav-actions">
+          {session && profile ? (
+            <div className="nav-user">
+              <NavLink to={'/profile/' + profile.id}><Avatar profile={profile} /></NavLink>
+              <button className="btn btn-ghost btn-sm" onClick={async () => { await signOut(); setMenuOpen(false); navigate('/') }}>Sign out</button>
+            </div>
+          ) : (
+            <button className="nav-sign-in" onClick={() => { setMenuOpen(false); onSignIn() }}>Sign in</button>
+          )}
+          <button
+            className="nav-menu-toggle"
+            type="button"
+            aria-label={menuOpen ? 'Close navigation' : 'Open navigation'}
+            aria-expanded={menuOpen}
+            aria-controls="community-nav-links"
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            {menuOpen ? '×' : '☰'}
+          </button>
+        </div>
+      </div>
     </nav>
   )
 }
