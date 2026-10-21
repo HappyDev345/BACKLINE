@@ -124,9 +124,15 @@ select.input { cursor: pointer; }
 }
 .nav-links a:hover { color: #fff; }
 .nav-links a.active { color: #fff; }
-.bell-wrap { position: relative; }
+.nav-links .bell-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.bell-icon { position: relative; display: inline-flex; }
+.bell-icon svg { width: 17px; height: 17px; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .badge-dot {
-  position: absolute; top: -2px; right: -4px;
+  position: absolute; top: -6px; right: -8px;
   background: var(--purple); border-radius: 999px;
   font-size: 0.62rem; padding: 1px 5px; font-weight: 700;
 }
@@ -314,28 +320,32 @@ footer { border-top: 1px solid var(--border-soft); padding: 24px 32px; color: va
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 880px) {
   .nav-inner { position: relative; height: 68px; }
   .nav-links {
-  position: absolute;
-  top: 68px;
-  right: 0;
-  left: 0;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0;
-  padding: 8px;
-  border: 1px solid rgba(255, 255, 255, .1);
-  border-radius: 12px;
-  background: var(--card);
+    position: absolute;
+    top: 68px;
+    right: 0;
+    left: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 8px;
+    border: 1px solid rgba(255, 255, 255, .1);
+    border-radius: 12px;
+    background: var(--card);
   }
   .nav-links { display: none; }
   .nav-links.is-open { display: flex; }
   .nav-links a { padding: 12px; }
+  .nav-links .bell-wrap { display: flex; }
   .nav-menu-toggle { display: block; }
   .nav-actions { gap: 4px; }
   .nav-user { gap: 6px; }
   .nav-user .btn { padding: 7px 10px; }
+}
+
+@media (max-width: 760px) {
   .page, .hero, .profile-head, .profile-body { padding-left: 16px; padding-right: 16px; }
   .messages-wrap { grid-template-columns: 1fr; height: auto; }
   .conv-list { max-height: 220px; }

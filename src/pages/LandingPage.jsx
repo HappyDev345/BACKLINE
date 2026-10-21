@@ -1,6 +1,5 @@
 // The public introduction to BACKLINE. Its examples are illustrative content;
 // the links lead visitors into the real preview pages.
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import logo from '../../BackLine-logo.png'
@@ -59,38 +58,9 @@ const discussions = [
 
 export default function LandingPage({ onSignIn }) {
   const { session } = useAuth()
-  const [menuOpen, setMenuOpen] = useState(false)
 
   return (
     <div className={styles.home} id="top">
-      <header className={styles.navWrap}>
-        <nav className={styles.navInner} aria-label="Main navigation">
-          <Link to="/" className={styles.brand} onClick={() => setMenuOpen(false)}>
-            <span className={styles.brandMark} aria-hidden="true"><img src={logo} alt="" /></span>
-            BACKLINE
-          </Link>
-          <div className={`${styles.navLinks} ${menuOpen ? styles.navLinksOpen : ''}`}>
-            <a href="#productions" onClick={() => setMenuOpen(false)}>Explore shows</a>
-            <a href="#crew" onClick={() => setMenuOpen(false)}>Find crew</a>
-            <a href="#forum" onClick={() => setMenuOpen(false)}>Discussions</a>
-            <Link to="/feed" onClick={() => setMenuOpen(false)}>Community</Link>
-          </div>
-          <div className={styles.navActions}>
-            {session ? (
-              <Link className={`${styles.button} ${styles.primary} ${styles.navPrimary}`} to="/feed">Open BACKLINE</Link>
-            ) : (
-              <>
-                <button className={styles.signIn} onClick={onSignIn}>Sign in</button>
-                <button className={`${styles.button} ${styles.primary} ${styles.navPrimary}`} onClick={onSignIn}>Join the crew</button>
-              </>
-            )}
-            <button className={styles.menuToggle} aria-label={menuOpen ? 'Close navigation' : 'Open navigation'} aria-expanded={menuOpen} onClick={() => setMenuOpen(open => !open)}>
-              {menuOpen ? '×' : '☰'}
-            </button>
-          </div>
-        </nav>
-      </header>
-
       <main>
         {/* Introduce the service and give visitors a direct route into projects or sign-up. */}
         <section className={styles.hero}>

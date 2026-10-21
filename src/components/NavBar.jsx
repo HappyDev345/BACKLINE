@@ -1,5 +1,4 @@
-// Shared navigation for the community pages, including account controls,
-// the small-screen menu, and the unread-notification count.
+// Site-wide navigation, account controls, and unread-notification count.
 import { useEffect, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -47,7 +46,7 @@ export default function NavBar({ onSignIn }) {
     <nav className="nav">
       <div className="nav-inner">
         <NavLink to="/" className="brand"><span className="brand-mark" aria-hidden="true"><img src={logo} alt="" /></span>BACKLINE</NavLink>
-        <div id="community-nav-links" className={'nav-links' + (menuOpen ? ' is-open' : '')}>
+        <div id="site-nav-links" className={'nav-links' + (menuOpen ? ' is-open' : '')}>
           <NavLink to="/feed" onClick={() => setMenuOpen(false)}>Feed</NavLink>
           <NavLink to="/discover" onClick={() => setMenuOpen(false)}>Discover</NavLink>
           <NavLink to="/people" onClick={() => setMenuOpen(false)}>People</NavLink>
@@ -59,8 +58,13 @@ export default function NavBar({ onSignIn }) {
             aria-label={`Notifications${unread > 0 ? `, ${unread} unread` : ''}`}
             onClick={() => setMenuOpen(false)}
           >
-            &#128276;
-            {unread > 0 && <span className="badge-dot">{unread}</span>}
+            <span className="bell-icon">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
+                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />
+              </svg>
+              {unread > 0 && <span className="badge-dot">{unread}</span>}
+            </span>
+            <span>Notifications</span>
           </NavLink>
         </div>
         <div className="nav-actions">
@@ -77,7 +81,7 @@ export default function NavBar({ onSignIn }) {
             type="button"
             aria-label={menuOpen ? 'Close navigation' : 'Open navigation'}
             aria-expanded={menuOpen}
-            aria-controls="community-nav-links"
+            aria-controls="site-nav-links"
             onClick={() => setMenuOpen((open) => !open)}
           >
             {menuOpen ? '×' : '☰'}
