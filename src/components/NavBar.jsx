@@ -47,7 +47,7 @@ export default function NavBar({ onSignIn }) {
       <div className="nav-inner">
         <NavLink to="/" className="brand"><span className="brand-mark" aria-hidden="true"><img src={logo} alt="" /></span>BACKLINE</NavLink>
         <div id="site-nav-links" className={'nav-links' + (menuOpen ? ' is-open' : '')}>
-          <NavLink to="/feed" onClick={() => setMenuOpen(false)}>Feed</NavLink>
+          {session && <NavLink to="/feed" onClick={() => setMenuOpen(false)}>Feed</NavLink>}
           <NavLink to="/discover" onClick={() => setMenuOpen(false)}>Discover</NavLink>
           <NavLink to="/people" onClick={() => setMenuOpen(false)}>People</NavLink>
           <NavLink to="/forum" onClick={() => setMenuOpen(false)}>Forum</NavLink>

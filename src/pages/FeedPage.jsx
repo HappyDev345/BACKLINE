@@ -7,7 +7,7 @@ import PostCard from '../components/PostCard'
 import Avatar from '../components/Avatar'
 
 export default function FeedPage({ promptSignIn }) {
-  const { session, profile } = useAuth()
+  const { session, profile, loading } = useAuth()
   const demo = useDemoData()
   const [posts, setPosts] = useState([])
   const [likedSet, setLikedSet] = useState(new Set())
@@ -45,7 +45,7 @@ export default function FeedPage({ promptSignIn }) {
     }
   }
 
-  useEffect(() => { load() }, [session])
+  useEffect(() => { if (session) load() }, [session])
 
   async function publish(e) {
     e.preventDefault()
@@ -116,6 +116,17 @@ export default function FeedPage({ promptSignIn }) {
 
   const shown = tab === 'all' ? posts : posts.filter(p => followingSet.has(p.author_id))
 
+  if (loading) return null
+  if (!session) {
+    return (
+      <div className="auth-prompt">
+        <h2>Feed</h2>
+        <p>Sign in to see the community feed.</p>
+        <button className="btn" style={{ marginTop: 16 }} onClick={promptSignIn}>Sign in</button>
+      </div>
+    )
+  }
+
   return (
     <div className="page">
       <header className="row-between" style={{ marginBottom: 22 }}>
@@ -127,7 +138,6 @@ export default function FeedPage({ promptSignIn }) {
       </header>
 
       <form className="composer" onSubmit={publish}>
-        {/* Visitors can browse posts without signing in, but posting needs an account. */}
         <div className="composer-top">
           {session ? <Avatar profile={profile} /> : <span className="avatar">?</span>}
           <textarea
