@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import logo from '../../BackLine-logo.png'
 import styles from './LandingPage.module.css'
 
 const productions = [
@@ -60,7 +61,7 @@ export default function LandingPage({ onSignIn }) {
       <header className={styles.navWrap}>
         <nav className={styles.navInner} aria-label="Main navigation">
           <Link to="/" className={styles.brand} onClick={() => setMenuOpen(false)}>
-            <span className={styles.brandMark} aria-hidden="true">B</span>
+            <span className={styles.brandMark} aria-hidden="true"><img src={logo} alt="" /></span>
             BACKLINE
           </Link>
           <div className={`${styles.navLinks} ${menuOpen ? styles.navLinksOpen : ''}`}>
@@ -190,7 +191,7 @@ export default function LandingPage({ onSignIn }) {
 
       <footer className={styles.footer}>
         <div className={`${styles.container} ${styles.footerInner}`}>
-          <Link to="/" className={styles.brand}><span className={styles.brandMark} aria-hidden="true">B</span>BACKLINE</Link>
+          <Link to="/" className={styles.brand}><span className={styles.brandMark} aria-hidden="true"><img src={logo} alt="" /></span>BACKLINE</Link>
           <div className={styles.footerLinks}><Link to="/feed">Community</Link><Link to="/discover">Projects</Link><Link to="/people">People</Link><Link to="/forum">Forum</Link></div>
           <span className={styles.footerNote}>The community behind every live show.</span>
         </div>

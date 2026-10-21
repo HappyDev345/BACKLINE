@@ -47,14 +47,24 @@
 }
 
 .brandMark {
+  position: relative;
   width: 36px;
   height: 36px;
-  display: grid;
-  place-items: center;
-  color: #75a7ff;
-  border: 1px solid rgba(117, 167, 255, .4);
+  display: block;
+  flex: 0 0 auto;
+  overflow: hidden;
   border-radius: 11px;
-  background: linear-gradient(145deg, rgba(81, 110, 255, .22), rgba(127, 68, 255, .08));
+  background: #080b14;
+}
+
+.brandMark img {
+  position: absolute;
+  width: 390%;
+  height: 390%;
+  max-width: none;
+  left: -145%;
+  top: -102%;
+  mix-blend-mode: screen;
 }
 
 .navLinks {
