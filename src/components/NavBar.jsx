@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import Avatar from './Avatar'
+import logo from '../../BackLine-logo.png'
 
 export default function NavBar({ onSignIn }) {
   const { session, profile, signOut } = useAuth()
@@ -33,7 +34,7 @@ export default function NavBar({ onSignIn }) {
 
   return (
     <nav className="nav">
-      <NavLink to="/" className="brand"><span className="brand-mark">B</span>BACKLINE</NavLink>
+      <NavLink to="/" className="brand"><span className="brand-mark" aria-hidden="true"><img src={logo} alt="" /></span>BACKLINE</NavLink>
       <div className="nav-links">
         <NavLink to="/feed">Feed</NavLink>
         <NavLink to="/discover">Discover</NavLink>

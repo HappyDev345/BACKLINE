@@ -67,9 +67,12 @@ select.input { cursor: pointer; }
   font-weight: 700; font-size: 1.15rem; letter-spacing: 0.06em;
 }
 .brand-mark {
-  width: 26px; height: 26px; border-radius: 8px;
-  background: var(--gradient); display: grid; place-items: center;
-  font-size: 0.8rem; font-weight: 700; color: #fff;
+  position: relative; width: 32px; height: 32px; border-radius: 8px;
+  background: #080b14; display: block; flex: 0 0 auto; overflow: hidden;
+}
+.brand-mark img {
+  position: absolute; width: 390%; height: 390%; max-width: none;
+  left: -145%; top: -102%; mix-blend-mode: screen;
 }
 .nav-links { display: flex; gap: 4px; flex: 1; align-items: center; }
 .nav-links a {
