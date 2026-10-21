@@ -35,7 +35,7 @@ export default function NavBar({ onSignIn }) {
     <nav className="nav">
       <NavLink to="/" className="brand"><span className="brand-mark">B</span>BACKLINE</NavLink>
       <div className="nav-links">
-        <NavLink to="/feed">Feed</NavLink>
+        <NavLink to="/" end>Feed</NavLink>
         <NavLink to="/discover">Discover</NavLink>
         <NavLink to="/people">People</NavLink>
         <NavLink to="/forum">Forum</NavLink>
