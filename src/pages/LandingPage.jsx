@@ -1,9 +1,12 @@
+// The public introduction to BACKLINE. Its examples are illustrative content;
+// the links lead visitors into the real preview pages.
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import logo from '../../BackLine-logo.png'
 import styles from './LandingPage.module.css'
 
+// These example listings make the home page feel like a real crew community.
 const productions = [
   {
     title: 'Sydney Harbour Light Festival',
@@ -40,12 +43,14 @@ const crew = [
   { name: 'Jamie Okafor', role: 'Camera Operator', location: 'Coogee, NSW', skills: ['Sony FX9', 'Jib', 'Broadcast'], image: 'https://images.unsplash.com/photo-1711473610014-0505db6f6702?auto=format&fit=crop&w=180&q=80', tone: 'orange' },
 ]
 
+// A few sample calls explain how role, location, dates, and pay appear together.
 const calls = [
   { department: 'LIGHTING', title: 'Lighting crew needed for a festival', location: 'Sydney, NSW', date: '12–14 Nov 2026', rate: 'A$450 / day', skills: ['grandMA3', 'IPAF', 'Outdoor'], tone: 'purple' },
   { department: 'VIDEO', title: 'Camera operator required for a live broadcast', location: 'Alexandria, NSW', date: '06 Dec 2026', rate: 'A$400 / day', skills: ['Sony', 'Long lens', 'Comms'], tone: 'orange' },
   { department: 'AUDIO', title: 'Monitor engineer needed for a touring show', location: 'UK & EU tour', date: '10–18 Dec 2026', rate: 'Tour rate', skills: ['DiGiCo', 'IEM', 'EU passport'], tone: 'blue' },
 ]
 
+// Sample discussion titles encourage visitors to explore the forum.
 const discussions = [
   { category: 'AUDIO & SIGNAL', title: 'Best way to prep an RF coordination file for a festival?', replies: '18 replies', time: '2h ago', tone: 'blue' },
   { category: 'LIGHTING & CONTROL', title: 'Showfile handover tips when joining a touring rig', replies: '12 replies', time: '5h ago', tone: 'purple' },
@@ -87,6 +92,7 @@ export default function LandingPage({ onSignIn }) {
       </header>
 
       <main>
+        {/* Introduce the service and give visitors a direct route into projects or sign-up. */}
         <section className={styles.hero}>
           <div className={`${styles.heroGlow} ${styles.heroGlowOne}`} />
           <div className={`${styles.heroGlow} ${styles.heroGlowTwo}`} />
@@ -130,6 +136,7 @@ export default function LandingPage({ onSignIn }) {
           <div className={`${styles.container} ${styles.disciplineBar}`}><span>LIVE WORK ACROSS</span><strong>Concerts</strong><i /><strong>Festivals</strong><i /><strong>Theatre</strong><i /><strong>Corporate</strong><i /><strong>Broadcast</strong></div>
         </section>
 
+        {/* Example project cards explain the kinds of opportunities the site supports. */}
         <section className={styles.section} id="productions">
           <div className={styles.container}>
             <div className={styles.sectionHead}>
@@ -147,6 +154,7 @@ export default function LandingPage({ onSignIn }) {
           </div>
         </section>
 
+        {/* Sample crew profiles show the people visitors could discover. */}
         <section className={`${styles.section} ${styles.sectionTinted}`} id="crew">
           <div className={styles.container}>
             <div className={styles.sectionHead}><div><div className={styles.sectionKicker}>THE PEOPLE BEHIND THE SHOW</div><h2 className={styles.sectionTitle}>Meet your next crew mate</h2><p className={styles.sectionSubtitle}>Example profiles showing the range of roles and skills you can find in the community.</p></div><Link className={styles.textLink} to="/people">Find crew <span aria-hidden="true">→</span></Link></div>
@@ -162,6 +170,7 @@ export default function LandingPage({ onSignIn }) {
           </div>
         </section>
 
+        {/* Example calls and discussions preview the community's content. */}
         <section className={`${styles.section} ${styles.crewCallsSection}`} id="calls">
           <div className={styles.container}>
             <div className={styles.sectionHead}><div><div className={styles.sectionKicker}>YOUR NEXT CALL TIME</div><h2 className={styles.sectionTitle}>Crew calls worth a look</h2><p className={styles.sectionSubtitle}>Example calls for a preview. Find current opportunities in projects.</p></div><Link className={styles.textLink} to="/discover">Browse projects <span aria-hidden="true">→</span></Link></div>
@@ -177,6 +186,7 @@ export default function LandingPage({ onSignIn }) {
           </div>
         </section>
 
+        {/* These topic previews link directly to the full forum page. */}
         <section className={`${styles.section} ${styles.forumSection}`} id="forum">
           <div className={`${styles.container} ${styles.forumLayout}`}>
             <div className={styles.forumIntro}><div className={styles.sectionKicker}>BACKSTAGE DISCUSSIONS</div><h2 className={styles.sectionTitle}>Practical answers from people on the ground.</h2><p className={styles.sectionSubtitle}>Example topics for a preview. Ask questions and compare workflows in the community forum.</p><Link className={`${styles.button} ${styles.secondary}`} to="/forum">Join the discussion <span aria-hidden="true">→</span></Link></div>
@@ -184,6 +194,7 @@ export default function LandingPage({ onSignIn }) {
           </div>
         </section>
 
+        {/* Repeat the invitation at the bottom for visitors who reach the footer. */}
         <section className={styles.ctaSection}>
           <div className={`${styles.container} ${styles.ctaInner}`}><div className={styles.ctaGlow} /><span className={styles.ctaIcon} aria-hidden="true">⌁</span><h2 className={styles.ctaTitle}>Find your people. Build the show.</h2><p className={styles.ctaCopy}>Join the backstage network built for the people who make live events possible.</p>{session ? <Link className={`${styles.button} ${styles.light}`} to="/feed">Open the community <span aria-hidden="true">→</span></Link> : <button className={`${styles.button} ${styles.light}`} onClick={onSignIn}>Join BACKLINE <span aria-hidden="true">→</span></button>}</div>
         </section>

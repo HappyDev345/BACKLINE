@@ -1,16 +1,20 @@
+// A place to browse technical discussions, start threads, and write replies.
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
+import { isDemoMode, supabase } from '../lib/supabase'
+import { useDemoData } from '../context/DemoContext'
 import { timeAgo } from '../lib/utils'
 import Avatar from '../components/Avatar'
 
 export const CATEGORIES = [
+  // These labels are used by both the category filters and the new-thread form.
   'Lighting & Control', 'Audio & Signal', 'Cameras & Cinematography',
   'Video & Projection', 'Equipment', 'Workflows & Troubleshooting', 'Careers & Training',
 ]
 
 export default function ForumPage({ promptSignIn }) {
   const { session, profile } = useAuth()
+  const demo = useDemoData()
   const [threads, setThreads] = useState([])
   const [cat, setCat] = useState('')
   const [showNew, setShowNew] = useState(false)
@@ -22,6 +26,11 @@ export default function ForumPage({ promptSignIn }) {
   const [reply, setReply] = useState('')
 
   async function load() {
+    // A forum thread is a post that has a category; regular feed posts do not.
+    if (isDemoMode) {
+      setThreads(demo.posts.filter((post) => post.category))
+      return
+    }
     let q = supabase
       .from('posts')
       .select('*, profiles:author_id(id, display_name, role_title, avatar_url), likes(count), comments(count)')
@@ -39,6 +48,26 @@ export default function ForumPage({ promptSignIn }) {
     e.preventDefault()
     if (!session) return promptSignIn()
     setBusy(true); setError('')
+    // New sample threads are shared with the feed data but remain in this browser.
+    if (isDemoMode) {
+      const thread = {
+        id: 'demo-thread-' + Date.now(),
+        author_id: session.user.id,
+        title: form.title.trim(),
+        body: form.body.trim(),
+        category: form.category,
+        created_at: new Date().toISOString(),
+        profiles: profile,
+        likes: [{ count: 0 }],
+        comments: [{ count: 0 }],
+      }
+      demo.setPosts((current) => [thread, ...current])
+      setThreads((current) => [thread, ...current])
+      setBusy(false)
+      setShowNew(false)
+      setForm({ title: '', body: '', category: CATEGORIES[0] })
+      return
+    }
     const { error } = await supabase.from('posts').insert({
       author_id: session.user.id,
       title: form.title.trim(),
@@ -54,6 +83,12 @@ export default function ForumPage({ promptSignIn }) {
 
   async function openThread(t) {
     setOpen(t)
+    // Load replies only after someone opens a thread.
+    if (isDemoMode) {
+      setReplies(demo.comments.filter((comment) => comment.post_id === t.id))
+      setReply('')
+      return
+    }
     const { data } = await supabase
       .from('comments').select('*, profiles:author_id(id, display_name, avatar_url)')
       .eq('post_id', t.id).order('created_at', { ascending: true })
@@ -65,6 +100,26 @@ export default function ForumPage({ promptSignIn }) {
     e.preventDefault()
     if (!session) return promptSignIn()
     if (!reply.trim()) return
+    if (isDemoMode) {
+      const comment = {
+        id: 'demo-reply-' + Date.now(),
+        post_id: open.id,
+        author_id: session.user.id,
+        body: reply.trim(),
+        created_at: new Date().toISOString(),
+        profiles: profile,
+      }
+      setReplies((current) => [...current, comment])
+      demo.setComments((current) => [...current, comment])
+      demo.setPosts((current) => current.map((post) => post.id === open.id
+        ? { ...post, comments: [{ count: (post.comments?.[0]?.count || 0) + 1 }] }
+        : post))
+      setReply('')
+      setThreads((current) => current.map((thread) => thread.id === open.id
+        ? { ...thread, comments: [{ count: (thread.comments?.[0]?.count || 0) + 1 }] }
+        : thread))
+      return
+    }
     const { data, error } = await supabase.from('comments')
       .insert({ post_id: open.id, author_id: session.user.id, body: reply.trim() })
       .select('*, profiles:author_id(id, display_name, avatar_url)').single()
@@ -84,15 +139,29 @@ export default function ForumPage({ promptSignIn }) {
       <p className="muted">Technical discussions, equipment advice and industry knowledge from the community.</p>
 
       <div className="forum-cats">
+        {/* Choosing a category filters the thread list below. */}
         <button className={'tab' + (cat === '' ? ' active' : '')} onClick={() => setCat('')}>All</button>
         {CATEGORIES.map(c => (
           <button key={c} className={'tab' + (cat === c ? ' active' : '')} onClick={() => setCat(c)}>{c}</button>
         ))}
       </div>
 
+      {/* Selecting a thread opens its full text and replies in a window. */}
       {shown.length === 0 && <div className="panel-empty">No threads here yet — start one!</div>}
       {shown.map(t => (
-        <div className="thread-item" key={t.id} onClick={() => openThread(t)}>
+        <div
+          className="thread-item"
+          key={t.id}
+          role="button"
+          tabIndex={0}
+          onClick={() => openThread(t)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              openThread(t)
+            }
+          }}
+        >
           <div className="row-between">
             <h3>{t.title}</h3>
             <span className="badge badge-type">{t.category}</span>

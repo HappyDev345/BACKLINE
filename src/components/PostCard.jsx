@@ -1,12 +1,15 @@
+// Displays one feed post, its like/comment controls, and any expanded replies.
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
+import { isDemoMode, supabase } from '../lib/supabase'
+import { useDemoData } from '../context/DemoContext'
 import { timeAgo } from '../lib/utils'
 import Avatar from './Avatar'
 
 export default function PostCard({ post, liked, onLike, promptSignIn }) {
   const { session, profile } = useAuth()
+  const demo = useDemoData()
   const author = post.profiles || {}
   const [expanded, setExpanded] = useState(false)
   const [comments, setComments] = useState([])
@@ -18,6 +21,13 @@ export default function PostCard({ post, liked, onLike, promptSignIn }) {
 
   async function toggleComments() {
     if (!expanded && !loaded) {
+      // Load sample replies from memory in preview mode; otherwise request them.
+      if (isDemoMode) {
+        setComments(demo.comments.filter((comment) => comment.post_id === post.id))
+        setLoaded(true)
+        setExpanded(true)
+        return
+      }
       const { data } = await supabase
         .from('comments').select('*, profiles:author_id(id, display_name, avatar_url)')
         .eq('post_id', post.id).order('created_at', { ascending: true })
@@ -28,9 +38,28 @@ export default function PostCard({ post, liked, onLike, promptSignIn }) {
   }
 
   async function submitComment(e) {
+    // A new comment is added locally in preview mode, or saved to Supabase.
     e.preventDefault()
     if (!session) return promptSignIn()
     if (!body.trim()) return
+    if (isDemoMode) {
+      const comment = {
+        id: 'demo-comment-' + Date.now(),
+        post_id: post.id,
+        author_id: session.user.id,
+        body: body.trim(),
+        created_at: new Date().toISOString(),
+        profiles: profile,
+      }
+      setComments((current) => [...current, comment])
+      demo.setComments((current) => [...current, comment])
+      setCount((current) => current + 1)
+      demo.setPosts((current) => current.map((item) => item.id === post.id
+        ? { ...item, comments: [{ count: (item.comments?.[0]?.count || 0) + 1 }] }
+        : item))
+      setBody('')
+      return
+    }
     const { data, error } = await supabase.from('comments')
       .insert({ post_id: post.id, author_id: session.user.id, body: body.trim() })
       .select('*, profiles:author_id(id, display_name, avatar_url)').single()

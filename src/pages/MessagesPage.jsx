@@ -1,12 +1,16 @@
+// Shows a list of private conversations and the messages in the selected one.
+// Connected accounts receive new messages live; preview messages stay in memory.
 import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
+import { isDemoMode, supabase } from '../lib/supabase'
+import { useDemoData } from '../context/DemoContext'
 import { timeAgo } from '../lib/utils'
 import Avatar from '../components/Avatar'
 
 export default function MessagesPage({ promptSignIn }) {
   const { session, profile } = useAuth()
+  const demo = useDemoData()
   const location = useLocation()
   const [convs, setConvs] = useState([])
   const [active, setActive] = useState(location.state?.open || null)
@@ -20,6 +24,8 @@ export default function MessagesPage({ promptSignIn }) {
   useEffect(() => {
     if (!active) return
     loadMsgs()
+    // Supabase subscriptions keep the open conversation up to date in real time.
+    if (isDemoMode) return
     const ch = supabase.channel('conv-' + active)
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: 'conversation_id=eq.' + active },
@@ -33,6 +39,14 @@ export default function MessagesPage({ promptSignIn }) {
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs])
 
   async function loadConvs() {
+    // Preview conversations already include the other person's profile and last message.
+    if (isDemoMode) {
+      const list = demo.conversations
+      setOthers(Object.fromEntries(list.map((conversation) => [conversation.id, conversation.other])))
+      setConvs(list)
+      if (!active && list.length) setActive(list[0].id)
+      return
+    }
     const { data: mem } = await supabase.from('conversation_members').select('conversation_id').eq('user_id', session.user.id)
     const ids = (mem || []).map(r => r.conversation_id)
     if (!ids.length) return
@@ -55,6 +69,10 @@ export default function MessagesPage({ promptSignIn }) {
   }
 
   async function loadMsgs() {
+    if (isDemoMode) {
+      setMsgs(demo.messages.filter((message) => message.conversation_id === active))
+      return
+    }
     const { data } = await supabase
       .from('messages')
       .select('*, profiles:sender_id(id, display_name, avatar_url)')
@@ -66,6 +84,27 @@ export default function MessagesPage({ promptSignIn }) {
   async function send(e) {
     e.preventDefault()
     if (!text.trim() || !session) return
+    // Add a temporary message to both the open chat and its conversation preview.
+    if (isDemoMode) {
+      const message = {
+        id: 'demo-message-' + Date.now(),
+        conversation_id: active,
+        sender_id: session.user.id,
+        body: text.trim(),
+        created_at: new Date().toISOString(),
+        profiles: profile,
+      }
+      demo.setMessages((current) => [...current, message])
+      demo.setConversations((current) => current.map((conversation) => conversation.id === active
+        ? { ...conversation, last: message }
+        : conversation))
+      setMsgs((current) => [...current, message])
+      setConvs((current) => current.map((conversation) => conversation.id === active
+        ? { ...conversation, last: message }
+        : conversation))
+      setText('')
+      return
+    }
     const { error } = await supabase.from('messages').insert({
       conversation_id: active,
       sender_id: session.user.id,
@@ -86,6 +125,7 @@ export default function MessagesPage({ promptSignIn }) {
 
   return (
     <div className="messages-wrap">
+      {/* The left column selects a conversation; the right column shows its messages. */}
       <aside className="conv-list">
         {convs.length === 0 && (
           <div className="panel-empty">
@@ -93,13 +133,13 @@ export default function MessagesPage({ promptSignIn }) {
           </div>
         )}
         {convs.map(c => (
-          <div key={c.id} className={'conv-item' + (active === c.id ? ' active' : '')} onClick={() => setActive(c.id)}>
+          <button key={c.id} type="button" className={'conv-item' + (active === c.id ? ' active' : '')} onClick={() => setActive(c.id)}>
             <Avatar profile={c.other} />
             <div style={{ minWidth: 0 }}>
               <div className="name">{c.other.display_name || 'Unknown'}</div>
               <div className="preview">{c.last ? c.last.body : 'Start the conversation'}</div>
             </div>
-          </div>
+          </button>
         ))}
       </aside>
 

@@ -1,7 +1,10 @@
+// Shows a crew member's public details, projects, and posts.
+// The profile owner can edit their details and profile picture.
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
+import { isDemoMode, supabase } from '../lib/supabase'
+import { useDemoData } from '../context/DemoContext'
 import Avatar from '../components/Avatar'
 import ProjectCard from '../components/ProjectCard'
 import PostCard from '../components/PostCard'
@@ -9,7 +12,8 @@ import { timeAgo } from '../lib/utils'
 
 export default function ProfilePage({ promptSignIn }) {
   const { id } = useParams()
-  const { session, profile: myProfile, refreshProfile } = useAuth()
+  const { session, profile: myProfile, refreshProfile, updateDemoProfile } = useAuth()
+  const demo = useDemoData()
   const targetId = id || session?.user?.id
 
   const [target, setTarget] = useState(null)
@@ -29,6 +33,19 @@ export default function ProfilePage({ promptSignIn }) {
   }, [targetId, session])
 
   async function load() {
+    // Assemble the profile and its related activity from sample or online data.
+    if (isDemoMode) {
+      const person = demo.profiles.find((profile) => profile.id === targetId)
+      setTarget(person || null)
+      setProjects(demo.projects.filter((project) => project.creator_id === targetId))
+      setPosts(demo.posts.filter((post) => post.author_id === targetId && !post.category))
+      setStats({
+        followers: demo.follows.filter((follow) => follow.followee_id === targetId).length,
+        following: demo.follows.filter((follow) => follow.follower_id === targetId).length,
+      })
+      setIsFollowing(demo.follows.some((follow) => follow.follower_id === session?.user?.id && follow.followee_id === targetId))
+      return
+    }
     const { data: p } = await supabase.from('profiles').select('*').eq('id', targetId).single()
     setTarget(p)
     const { data: projs } = await supabase.from('projects').select('*, profiles:creator_id(id, display_name, role_title, avatar_url, location)').eq('creator_id', targetId).order('created_at', { ascending: false })
@@ -47,6 +64,7 @@ export default function ProfilePage({ promptSignIn }) {
   const isOwn = session && targetId === session.user.id
 
   function openEdit() {
+    // Copy the current profile into the form so edits do not appear before saving.
     setForm({
       display_name: target.display_name || '',
       username: target.username || '',
@@ -61,6 +79,24 @@ export default function ProfilePage({ promptSignIn }) {
   async function saveEdit(e) {
     e.preventDefault()
     setBusy(true); setError('')
+    // Preview edits update only this browser's profile copy.
+    if (isDemoMode) {
+      const updates = {
+        display_name: form.display_name.trim(),
+        username: form.username.trim().toLowerCase() || null,
+        role_title: form.role_title.trim(),
+        location: form.location.trim(),
+        bio: form.bio.trim(),
+        skills: form.skills.split(',').map((skill) => skill.trim()).filter(Boolean),
+      }
+      const updatedProfile = { ...target, ...updates }
+      demo.setProfiles((current) => current.map((person) => person.id === targetId ? updatedProfile : person))
+      updateDemoProfile(updates)
+      setTarget(updatedProfile)
+      setBusy(false)
+      setEditing(false)
+      return
+    }
     const { error } = await supabase.from('profiles').update({
       display_name: form.display_name.trim(),
       username: form.username.trim().toLowerCase() || null,
@@ -78,6 +114,15 @@ export default function ProfilePage({ promptSignIn }) {
 
   async function toggleFollow() {
     if (!session) return promptSignIn()
+    // Keep the follow button and follower total in step for a preview profile.
+    if (isDemoMode) {
+      demo.setFollows((current) => isFollowing
+        ? current.filter((follow) => !(follow.follower_id === session.user.id && follow.followee_id === targetId))
+        : [...current, { follower_id: session.user.id, followee_id: targetId }])
+      setIsFollowing((current) => !current)
+      setStats((current) => ({ ...current, followers: current.followers + (isFollowing ? -1 : 1) }))
+      return
+    }
     if (isFollowing) {
       await supabase.from('follows').delete().eq('follower_id', session.user.id).eq('followee_id', targetId)
     } else {
@@ -100,6 +145,7 @@ export default function ProfilePage({ promptSignIn }) {
 
   return (
     <>
+      {/* Profile details and connection statistics appear above the activity tabs. */}
       <div className="profile-head">
         <div className="profile-card">
           <div className="profile-top">
@@ -138,6 +184,7 @@ export default function ProfilePage({ promptSignIn }) {
         </div>
       </div>
 
+      {/* Switch between projects and posts belonging to this person. */}
       <div className="profile-body">
         <div className="tabs" style={{ marginBottom: 18 }}>
           <button className={'tab' + (tab === 'projects' ? ' active' : '')} onClick={() => setTab('projects')}>
@@ -205,6 +252,14 @@ export default function ProfilePage({ promptSignIn }) {
                   onChange={async e => {
                     const file = e.target.files[0]
                     if (!file) return
+                    if (isDemoMode) {
+                      const avatar_url = URL.createObjectURL(file)
+                      const updatedProfile = { ...target, avatar_url }
+                      demo.setProfiles((current) => current.map((person) => person.id === targetId ? updatedProfile : person))
+                      updateDemoProfile({ avatar_url })
+                      setTarget(updatedProfile)
+                      return
+                    }
                     setBusy(true); setError('')
                     const path = session.user.id + '/' + Date.now() + '-' + file.name
                     const { error: upErr } = await supabase.storage.from('media').upload(path, file)

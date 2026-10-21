@@ -1,5 +1,7 @@
-// Finds the existing 1:1 conversation between two users, or creates one.
+// Finds the existing private conversation between two people, or creates one
+// and adds both people to it. This helper is used when someone starts a message.
 export async function findOrCreateConversation(supabase, meId, otherId) {
+  // First collect conversations that already include the person starting the chat.
   const { data: mine } = await supabase
     .from('conversation_members')
     .select('conversation_id')
@@ -7,6 +9,7 @@ export async function findOrCreateConversation(supabase, meId, otherId) {
 
   const ids = (mine || []).map(r => r.conversation_id)
   if (ids.length) {
+    // If the other person shares one of those conversations, reuse it.
     const { data: shared } = await supabase
       .from('conversation_members')
       .select('conversation_id')
@@ -15,6 +18,7 @@ export async function findOrCreateConversation(supabase, meId, otherId) {
     if (shared && shared.length) return shared[0].conversation_id
   }
 
+  // Otherwise create a new conversation and add both participants.
   const { data: conv, error } = await supabase.from('conversations').insert({}).select().single()
   if (error) throw error
   const { error: memErr } = await supabase.from('conversation_members').insert([

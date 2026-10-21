@@ -1,7 +1,9 @@
+// Lists activity alerts for the signed-in person and allows marking them read.
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
+import { isDemoMode, supabase } from '../lib/supabase'
+import { useDemoData } from '../context/DemoContext'
 import { timeAgo } from '../lib/utils'
 import Avatar from '../components/Avatar'
 
@@ -14,10 +16,16 @@ const LABELS = {
 
 export default function NotificationsPage({ promptSignIn }) {
   const { session } = useAuth()
+  const demo = useDemoData()
   const navigate = useNavigate()
   const [notifs, setNotifs] = useState([])
 
   async function load() {
+    // Alerts are private to the signed-in account in the connected app.
+    if (isDemoMode) {
+      setNotifs(demo.notifications.filter((notification) => notification.user_id === session?.user?.id))
+      return
+    }
     const { data } = await supabase
       .from('notifications')
       .select('*, profiles:actor_id(id, display_name, avatar_url)')
@@ -29,6 +37,14 @@ export default function NotificationsPage({ promptSignIn }) {
   useEffect(() => { if (session) load() }, [session])
 
   async function markAllRead() {
+    // Update local alerts in preview mode; otherwise save the changes online.
+    if (isDemoMode) {
+      demo.setNotifications((current) => current.map((notification) => notification.user_id === session.user.id
+        ? { ...notification, read: true }
+        : notification))
+      setNotifs((current) => current.map((notification) => ({ ...notification, read: true })))
+      return
+    }
     await supabase.from('notifications').update({ read: true }).eq('user_id', session.user.id).eq('read', false)
     window.dispatchEvent(new Event('backline:notifs-read'))
     load()
@@ -56,7 +72,15 @@ export default function NotificationsPage({ promptSignIn }) {
           key={n.id}
           className={'notif-item' + (n.read ? '' : ' unread')}
           style={{ cursor: n.type === 'message' ? 'pointer' : 'default' }}
+          role={n.type === 'message' ? 'button' : undefined}
+          tabIndex={n.type === 'message' ? 0 : undefined}
           onClick={() => { if (n.type === 'message') navigate('/messages', { state: { open: n.ref_id } }) }}
+          onKeyDown={(event) => {
+            if (n.type === 'message' && (event.key === 'Enter' || event.key === ' ')) {
+              event.preventDefault()
+              navigate('/messages', { state: { open: n.ref_id } })
+            }
+          }}
         >
           <Avatar profile={n.profiles} />
           <div className="txt">

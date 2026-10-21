@@ -1,11 +1,14 @@
+// Shows all details for a project and lets a signed-in visitor contact its creator.
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
+import { isDemoMode, supabase } from '../lib/supabase'
+import { useDemoData } from '../context/DemoContext'
 import { findOrCreateConversation } from '../lib/conversations'
 import Avatar from './Avatar'
 
 export default function ProjectModal({ p, onClose, promptSignIn }) {
   const { session, profile } = useAuth()
+  const demo = useDemoData()
   const creator = p.profiles || {}
   const [interestSent, setInterestSent] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -15,6 +18,28 @@ export default function ProjectModal({ p, onClose, promptSignIn }) {
     if (!session) return promptSignIn()
     setBusy(true); setError('')
     try {
+      // Preview mode creates a pretend conversation without sending data online.
+      if (isDemoMode) {
+        const conversationId = 'demo-conversation-' + creator.id
+        const message = {
+          id: 'demo-message-' + Date.now(),
+          conversation_id: conversationId,
+          sender_id: session.user.id,
+          body: 'Hi! I found "' + p.title + '" on Discover and I would like to express interest. Here is my profile: ' + (profile.display_name || ''),
+          created_at: new Date().toISOString(),
+          profiles: profile,
+        }
+        if (!demo.conversations.some((conversation) => conversation.id === conversationId)) {
+          demo.setConversations((current) => [...current, { id: conversationId, other: creator, last: message }])
+        } else {
+          demo.setConversations((current) => current.map((conversation) => conversation.id === conversationId
+            ? { ...conversation, last: message }
+            : conversation))
+        }
+        demo.setMessages((current) => [...current, message])
+        setInterestSent(true)
+        return
+      }
       const convId = await findOrCreateConversation(supabase, session.user.id, creator.id)
       const { error: msgErr } = await supabase.from('messages').insert({
         conversation_id: convId,

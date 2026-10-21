@@ -1,3 +1,4 @@
+// Shows a person's picture, or their initials when they have no picture.
 import { initials } from '../lib/utils'
 
 export default function Avatar({ profile, size }) {

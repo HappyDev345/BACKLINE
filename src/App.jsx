@@ -1,5 +1,7 @@
+// This file connects each website address to the page shown there and keeps
+// shared pieces, such as the sign-in window, available across the site.
 import { useState } from 'react'
-import { Routes, Route, useLocation } from 'react-router-dom'
+import { Routes, Route, useLocation, Link } from 'react-router-dom'
 import NavBar from './components/NavBar'
 import AuthModal from './components/AuthModal'
 import LandingPage from './pages/LandingPage'
@@ -10,8 +12,10 @@ import ProfilePage from './pages/ProfilePage'
 import MessagesPage from './pages/MessagesPage'
 import ForumPage from './pages/ForumPage'
 import NotificationsPage from './pages/NotificationsPage'
+import { isDemoMode } from './lib/supabase'
 
 export default function App() {
+  // The same sign-in window can be opened from any page using this helper.
   const [authOpen, setAuthOpen] = useState(false)
   const promptSignIn = () => setAuthOpen(true)
   const { pathname } = useLocation()
@@ -19,7 +23,11 @@ export default function App() {
 
   return (
     <>
+      {/* The community pages share a navigation bar; the landing page has its own. */}
       {!isLandingPage && <NavBar onSignIn={promptSignIn} />}
+      {/* This label reminds visitors that preview edits are temporary. */}
+      {isDemoMode && <div className="demo-banner" role="status">Preview mode · sample content only; changes reset when you refresh.</div>}
+      {/* Each Route pairs a web address with the page component that handles it. */}
       <Routes>
         <Route path="/" element={<LandingPage onSignIn={promptSignIn} />} />
         <Route path="/feed" element={<FeedPage promptSignIn={promptSignIn} />} />
@@ -30,7 +38,10 @@ export default function App() {
         <Route path="/messages" element={<MessagesPage promptSignIn={promptSignIn} />} />
         <Route path="/forum" element={<ForumPage promptSignIn={promptSignIn} />} />
         <Route path="/notifications" element={<NotificationsPage promptSignIn={promptSignIn} />} />
+        {/* Unknown addresses get a friendly message instead of a blank screen. */}
+        <Route path="*" element={<div className="auth-prompt"><h2>That page is off the call sheet</h2><p>We couldn’t find that page.</p><Link className="btn" style={{ display: 'inline-block', marginTop: 16, textDecoration: 'none' }} to="/">Back to BACKLINE</Link></div>} />
       </Routes>
+      {/* Keep one sign-in window mounted here so every page opens the same one. */}
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
       {!isLandingPage && <footer>BACKLINE · Connecting the people who make productions happen.</footer>}
     </>

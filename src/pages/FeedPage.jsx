@@ -1,11 +1,14 @@
+// Shows community posts and lets signed-in visitors publish, like, and comment.
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
+import { isDemoMode, supabase } from '../lib/supabase'
+import { useDemoData } from '../context/DemoContext'
 import PostCard from '../components/PostCard'
 import Avatar from '../components/Avatar'
 
 export default function FeedPage({ promptSignIn }) {
   const { session, profile } = useAuth()
+  const demo = useDemoData()
   const [posts, setPosts] = useState([])
   const [likedSet, setLikedSet] = useState(new Set())
   const [followingSet, setFollowingSet] = useState(new Set())
@@ -15,6 +18,18 @@ export default function FeedPage({ promptSignIn }) {
   const [busy, setBusy] = useState(false)
 
   async function load() {
+    // Preview mode uses local sample posts; connected mode requests recent posts.
+    if (isDemoMode) {
+      setPosts(demo.posts.filter((post) => !post.category))
+      if (session) {
+        setLikedSet(new Set(demo.likedPostIds))
+        setFollowingSet(new Set(demo.follows.filter((follow) => follow.follower_id === session.user.id).map((follow) => follow.followee_id)))
+      } else {
+        setLikedSet(new Set())
+        setFollowingSet(new Set())
+      }
+      return
+    }
     const { data } = await supabase
       .from('posts')
       .select('*, profiles:author_id(id, display_name, role_title, avatar_url), likes(count), comments(count)')
@@ -36,6 +51,26 @@ export default function FeedPage({ promptSignIn }) {
     e.preventDefault()
     if (!session) return promptSignIn()
     setBusy(true)
+    // Sample posts are added to shared browser memory, not saved to a server.
+    if (isDemoMode) {
+      const post = {
+        id: 'demo-post-' + Date.now(),
+        author_id: session.user.id,
+        title: title.trim() || null,
+        body: body.trim(),
+        category: null,
+        created_at: new Date().toISOString(),
+        profiles: profile,
+        likes: [{ count: 0 }],
+        comments: [{ count: 0 }],
+      }
+      demo.setPosts((current) => [post, ...current])
+      setPosts((current) => [post, ...current])
+      setTitle('')
+      setBody('')
+      setBusy(false)
+      return
+    }
     const { data, error } = await supabase.from('posts')
       .insert({ author_id: session.user.id, title: title.trim() || null, body: body.trim() })
       .select('*, profiles:author_id(id, display_name, role_title, avatar_url), likes(count), comments(count)')
@@ -50,6 +85,24 @@ export default function FeedPage({ promptSignIn }) {
   async function toggleLike(post) {
     if (!session) return promptSignIn()
     const id = post.id
+    // Update the visible count and sample state together in preview mode.
+    if (isDemoMode) {
+      const liked = likedSet.has(id)
+      setLikedSet((current) => {
+        const next = new Set(current)
+        if (liked) next.delete(id)
+        else next.add(id)
+        return next
+      })
+      setPosts((current) => current.map((item) => item.id === id
+        ? { ...item, likes: [{ count: Math.max(0, (item.likes?.[0]?.count || 0) + (liked ? -1 : 1)) }] }
+        : item))
+      demo.setPosts((current) => current.map((item) => item.id === id
+        ? { ...item, likes: [{ count: Math.max(0, (item.likes?.[0]?.count || 0) + (liked ? -1 : 1)) }] }
+        : item))
+      demo.setLikedPostIds((current) => liked ? current.filter((postId) => postId !== id) : [...current, id])
+      return
+    }
     if (likedSet.has(id)) {
       await supabase.from('likes').delete().eq('post_id', id).eq('user_id', session.user.id)
       setLikedSet(s => { const n = new Set(s); n.delete(id); return n })
@@ -74,6 +127,7 @@ export default function FeedPage({ promptSignIn }) {
       </header>
 
       <form className="composer" onSubmit={publish}>
+        {/* Visitors can browse posts without signing in, but posting needs an account. */}
         <div className="composer-top">
           {session ? <Avatar profile={profile} /> : <span className="avatar">?</span>}
           <textarea
@@ -100,6 +154,7 @@ export default function FeedPage({ promptSignIn }) {
         </div>
       </form>
 
+      {/* The tabs show either every post or posts from followed people. */}
       {shown.length === 0 && (
         <div className="panel-empty">
           {tab === 'following'
