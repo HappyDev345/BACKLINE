@@ -1,5 +1,6 @@
 /* Shared colors, buttons, cards, navigation, and responsive styles for app pages. */
 * { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
 /* These named colors keep pages visually consistent when a color changes. */
 :root {
   --bg: #0a0f1e;
