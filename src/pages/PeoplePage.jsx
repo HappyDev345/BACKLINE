@@ -1,12 +1,15 @@
+// Search the crew directory and offer quick follow and message actions.
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
+import { isDemoMode, supabase } from '../lib/supabase'
+import { useDemoData } from '../context/DemoContext'
 import { findOrCreateConversation } from '../lib/conversations'
 import Avatar from '../components/Avatar'
 
 export default function PeoplePage({ promptSignIn }) {
   const { session } = useAuth()
+  const demo = useDemoData()
   const navigate = useNavigate()
   const [people, setPeople] = useState([])
   const [followingSet, setFollowingSet] = useState(new Set())
@@ -14,6 +17,12 @@ export default function PeoplePage({ promptSignIn }) {
   const [busyMsg, setBusyMsg] = useState('')
 
   async function load() {
+    // Preview profiles and follow markers come from the shared local sample data.
+    if (isDemoMode) {
+      setPeople(demo.profiles)
+      setFollowingSet(new Set(demo.follows.filter((follow) => follow.follower_id === session?.user?.id).map((follow) => follow.followee_id)))
+      return
+    }
     const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false }).limit(100)
     setPeople(data || [])
     if (session) {
@@ -24,6 +33,7 @@ export default function PeoplePage({ promptSignIn }) {
 
   useEffect(() => { load() }, [session])
 
+  // Search across name, username, job title, location, and listed skills.
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
     return people.filter(p =>
@@ -38,6 +48,20 @@ export default function PeoplePage({ promptSignIn }) {
 
   async function toggleFollow(id) {
     if (!session) return promptSignIn()
+    // A preview follow updates shared in-memory state so other screens can use it.
+    if (isDemoMode) {
+      const following = followingSet.has(id)
+      setFollowingSet((current) => {
+        const next = new Set(current)
+        if (following) next.delete(id)
+        else next.add(id)
+        return next
+      })
+      demo.setFollows((current) => following
+        ? current.filter((item) => !(item.follower_id === session.user.id && item.followee_id === id))
+        : [...current, { follower_id: session.user.id, followee_id: id }])
+      return
+    }
     if (followingSet.has(id)) {
       await supabase.from('follows').delete().eq('follower_id', session.user.id).eq('followee_id', id)
       setFollowingSet(s => { const n = new Set(s); n.delete(id); return n })
@@ -51,6 +75,18 @@ export default function PeoplePage({ promptSignIn }) {
     if (!session) return promptSignIn()
     setBusyMsg('Opening conversation…')
     try {
+      // Create a sample conversation locally when one does not already exist.
+      if (isDemoMode) {
+        let conversation = demo.conversations.find((item) => item.other.id === id)
+        if (!conversation) {
+          const other = demo.profiles.find((person) => person.id === id)
+          conversation = { id: 'demo-conversation-' + id, other, last: null }
+          demo.setConversations((current) => [...current, conversation])
+        }
+        navigate('/messages', { state: { open: conversation.id } })
+        setBusyMsg('')
+        return
+      }
       const convId = await findOrCreateConversation(supabase, session.user.id, id)
       navigate('/messages', { state: { open: convId } })
     } catch (e) {
@@ -68,6 +104,7 @@ export default function PeoplePage({ promptSignIn }) {
         </div>
       </header>
       {busyMsg && <p className="hint" style={{ marginBottom: 12 }}>{busyMsg}</p>}
+      {/* Each result links to a profile and offers follow/message actions when signed in. */}
       {shown.length === 0 && <div className="panel-empty">No people found. Invite your crew to join BACKLINE!</div>}
       {shown.map(p => (
         <div className="people-row" key={p.id}>

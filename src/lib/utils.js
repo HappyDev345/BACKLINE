@@ -1,4 +1,6 @@
+// Small display helpers shared by multiple pages and components.
 export function timeAgo(ts) {
+  // Turn a saved time into a short label such as "5m ago" or "2d ago".
   const s = Math.floor((Date.now() - new Date(ts).getTime()) / 1000)
   if (s < 60) return 'just now'
   const m = Math.floor(s / 60)
@@ -11,11 +13,13 @@ export function timeAgo(ts) {
 }
 
 export function initials(name) {
+  // Make a short fallback label when a person has no profile photo.
   if (!name) return '?'
   return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
 }
 
 export function fmtDate(d) {
+  // Show a date in a familiar Australian format, or nothing when it is missing.
   if (!d) return ''
   return new Date(d + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
 }

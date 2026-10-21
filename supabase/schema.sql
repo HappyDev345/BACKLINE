@@ -1,11 +1,15 @@
 -- ============================================================
 -- BACKLINE database schema + Row Level Security
 -- Run this once in: Supabase Dashboard -> SQL Editor -> New query
+-- This script creates the online tables, access rules, automatic alerts,
+-- and image bucket used by the full-stack version of the app.
 -- ============================================================
 
+-- Adds the ID generator used when a new database record is created.
 create extension if not exists "pgcrypto";
 
 -- ---------- profiles ----------
+-- One public crew profile is linked to each account that signs up.
 create table if not exists public.profiles (
   id           uuid primary key references auth.users(id) on delete cascade,
   username     text unique,
@@ -19,6 +23,7 @@ create table if not exists public.profiles (
 );
 
 -- ---------- projects ----------
+-- Crew calls and opportunities posted by members.
 create table if not exists public.projects (
   id           uuid primary key default gen_random_uuid(),
   creator_id   uuid not null references public.profiles(id) on delete cascade,
@@ -36,6 +41,7 @@ create table if not exists public.projects (
 );
 
 -- ---------- project_members (future: accepted crew) ----------
+-- People assigned to a project after joining it.
 create table if not exists public.project_members (
   project_id uuid not null references public.projects(id) on delete cascade,
   user_id    uuid not null references public.profiles(id) on delete cascade,
@@ -44,6 +50,7 @@ create table if not exists public.project_members (
 );
 
 create table if not exists public.saved_projects (
+  -- These two IDs together mean each person can save a project only once.
   user_id    uuid not null references public.profiles(id) on delete cascade,
   project_id uuid not null references public.projects(id) on delete cascade,
   created_at timestamptz not null default now(),
@@ -51,6 +58,7 @@ create table if not exists public.saved_projects (
 );
 
 -- ---------- posts (feed + forum threads; forum threads have a category) ----------
+-- Feed posts and forum threads share one table; forum threads have a category.
 create table if not exists public.posts (
   id         uuid primary key default gen_random_uuid(),
   author_id  uuid not null references public.profiles(id) on delete cascade,
@@ -63,6 +71,7 @@ create table if not exists public.posts (
 );
 
 create table if not exists public.comments (
+  -- A comment is a reply attached to a post and written by a profile.
   id         uuid primary key default gen_random_uuid(),
   post_id    uuid not null references public.posts(id) on delete cascade,
   author_id  uuid not null references public.profiles(id) on delete cascade,
@@ -71,6 +80,7 @@ create table if not exists public.comments (
 );
 
 create table if not exists public.likes (
+  -- The pair of IDs prevents the same person liking the same post twice.
   user_id    uuid not null references public.profiles(id) on delete cascade,
   post_id    uuid not null references public.posts(id) on delete cascade,
   created_at timestamptz not null default now(),
@@ -78,6 +88,7 @@ create table if not exists public.likes (
 );
 
 create table if not exists public.follows (
+  -- The first ID is the follower; the second ID is the person being followed.
   follower_id uuid not null references public.profiles(id) on delete cascade,
   followee_id uuid not null references public.profiles(id) on delete cascade,
   created_at  timestamptz not null default now(),
@@ -86,18 +97,21 @@ create table if not exists public.follows (
 );
 
 -- ---------- messaging ----------
+-- Conversations hold their members, and each message is tied to its sender.
 create table if not exists public.conversations (
   id         uuid primary key default gen_random_uuid(),
   created_at timestamptz not null default now()
 );
 
 create table if not exists public.conversation_members (
+  -- This linking table records who can see each private conversation.
   conversation_id uuid not null references public.conversations(id) on delete cascade,
   user_id         uuid not null references public.profiles(id) on delete cascade,
   primary key (conversation_id, user_id)
 );
 
 create table if not exists public.messages (
+  -- Each message belongs to one conversation and records who sent it.
   id              uuid primary key default gen_random_uuid(),
   conversation_id uuid not null references public.conversations(id) on delete cascade,
   sender_id       uuid not null references public.profiles(id) on delete cascade,
@@ -117,6 +131,7 @@ create table if not exists public.notifications (
 
 -- ============================================================
 -- ROW LEVEL SECURITY
+-- These switches make Supabase check each policy below before showing or changing rows.
 -- ============================================================
 alter table public.profiles              enable row level security;
 alter table public.projects              enable row level security;
@@ -132,6 +147,7 @@ alter table public.messages              enable row level security;
 alter table public.notifications         enable row level security;
 
 -- profiles: public to read, only owner can update (rows created by trigger)
+-- "auth.uid()" means the ID of the person currently signed in.
 create policy "profiles readable" on public.profiles for select using (true);
 create policy "own profile update" on public.profiles for update using (auth.uid() = id);
 
@@ -173,6 +189,7 @@ create policy "user follows" on public.follows for insert with check (auth.uid()
 create policy "user unfollows" on public.follows for delete using (auth.uid() = follower_id);
 
 -- conversations / members / messages
+-- Private conversations and their messages are only visible to their members.
 create policy "member reads conversation" on public.conversations for select using (
   exists (select 1 from public.conversation_members cm
           where cm.conversation_id = id and cm.user_id = auth.uid()));
@@ -201,9 +218,11 @@ create policy "own notifs update"   on public.notifications for update using (au
 
 -- ============================================================
 -- TRIGGERS
+-- A trigger is an automatic database action that runs after a matching event.
 -- ============================================================
 
 -- Auto-create a profile when a user signs up
+-- Copies the person's chosen name and username from their account sign-up details.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql security definer set search_path = public
@@ -222,7 +241,7 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
--- Notifications
+-- Each function below creates an alert after the matching action happens.
 create or replace function public.notify_like()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
@@ -233,6 +252,7 @@ begin
   return new;
 end;
 $$;
+-- Run the alert function whenever a new like is added.
 drop trigger if exists on_like on public.likes;
 create trigger on_like after insert on public.likes for each row execute function public.notify_like();
 
@@ -246,6 +266,7 @@ begin
   return new;
 end;
 $$;
+-- Run the alert function whenever a new comment is added.
 drop trigger if exists on_comment on public.comments;
 create trigger on_comment after insert on public.comments for each row execute function public.notify_comment();
 
@@ -257,6 +278,7 @@ begin
   return new;
 end;
 $$;
+-- Run the alert function whenever one person follows another.
 drop trigger if exists on_follow on public.follows;
 create trigger on_follow after insert on public.follows for each row execute function public.notify_follow();
 
@@ -275,11 +297,13 @@ begin
   return new;
 end;
 $$;
+-- Run the alert function whenever someone sends a private message.
 drop trigger if exists on_message on public.messages;
 create trigger on_message after insert on public.messages for each row execute function public.notify_message();
 
 -- ============================================================
 -- STORAGE: public bucket for avatars / post media
+-- Profile photos and other uploaded media are kept in this Supabase storage bucket.
 -- ============================================================
 insert into storage.buckets (id, name, public)
 values ('media', 'media', true)

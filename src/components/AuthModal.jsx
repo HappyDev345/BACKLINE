@@ -1,5 +1,8 @@
+// This pop-up lets a visitor sign in or create an account.
+// With no Supabase settings, it instead starts a temporary preview session.
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { isDemoMode } from '../lib/supabase'
 
 export default function AuthModal({ open, onClose }) {
   const { signIn, signUp } = useAuth()
@@ -14,6 +17,7 @@ export default function AuthModal({ open, onClose }) {
   if (!open) return null
 
   async function submit(e) {
+    // Stop the browser from reloading the whole page when the form is submitted.
     e.preventDefault()
     setError('')
     setBusy(true)
@@ -33,6 +37,7 @@ export default function AuthModal({ open, onClose }) {
       <div className="modal" style={{ maxWidth: 420 }}>
         <button className="modal-close" onClick={onClose} aria-label="Close">&#10005;</button>
         <h2>{mode === 'in' ? 'Welcome back' : 'Join BACKLINE'}</h2>
+        {isDemoMode && <p className="hint">Preview mode: use any email and password to explore. Nothing is saved.</p>}
         <div className="tabs" style={{ margin: '14px 0 20px' }}>
           <button className={'tab' + (mode === 'in' ? ' active' : '')} onClick={() => setMode('in')}>Sign in</button>
           <button className={'tab' + (mode === 'up' ? ' active' : '')} onClick={() => setMode('up')}>Create account</button>
@@ -62,7 +67,7 @@ export default function AuthModal({ open, onClose }) {
           <button className="btn" style={{ width: '100%', marginTop: 16 }} disabled={busy}>
             {busy ? 'Please wait…' : mode === 'in' ? 'Sign in' : 'Create account'}
           </button>
-          {mode === 'up' && <p className="hint" style={{ marginTop: 12 }}>If email confirmation is enabled in Supabase, check your inbox before signing in.</p>}
+          {mode === 'up' && !isDemoMode && <p className="hint" style={{ marginTop: 12 }}>If email confirmation is enabled in Supabase, check your inbox before signing in.</p>}
         </form>
       </div>
     </div>
