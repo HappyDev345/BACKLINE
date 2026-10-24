@@ -41,6 +41,10 @@ When you are ready to test the full-stack flows:
 4. Restart Vite. When both values are present, the app uses Supabase instead of
    preview mode.
 
+In connected mode, the public landing page's Featured live productions section
+shows the three newest public projects from Supabase. Preview mode keeps its
+illustrative sample cards.
+
 Never put a Supabase service-role key in the frontend or commit credentials.
 Use a separate project and environment variables for preview deployments so
 test data cannot affect production.
