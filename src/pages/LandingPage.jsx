@@ -1,7 +1,9 @@
-// The public introduction to BACKLINE. Its examples are illustrative content;
-// the links lead visitors into the real preview pages.
+// The public introduction to BACKLINE. Featured projects use sample content in
+// preview mode and public project records when Supabase is connected.
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { isDemoMode, supabase } from '../lib/supabase'
 import logo from '../../BackLine-logo.png'
 import styles from './LandingPage.module.css'
 
@@ -56,8 +58,55 @@ const discussions = [
   { category: 'VIDEO & PROJECTION', title: 'Reliable backup workflow for playback on show day', replies: '9 replies', time: '1d ago', tone: 'orange' },
 ]
 
+function formatProductionDate(date) {
+  if (!date) return 'DATE TBC'
+  return new Intl.DateTimeFormat('en-AU', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${date}T00:00:00`)).toUpperCase()
+}
+
 export default function LandingPage({ onSignIn }) {
   const { session } = useAuth()
+  const [liveProductions, setLiveProductions] = useState([])
+  const [productionsLoading, setProductionsLoading] = useState(!isDemoMode)
+  const [productionsError, setProductionsError] = useState('')
+
+  useEffect(() => {
+    if (isDemoMode) return
+
+    let cancelled = false
+
+    async function loadProductions() {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, title, type, event_date, roles, location, created_at')
+        .order('created_at', { ascending: false })
+        .limit(3)
+
+      if (cancelled) return
+      if (error) {
+        setProductionsError(error.message)
+        setProductionsLoading(false)
+        return
+      }
+      if (!data) {
+        setProductionsError('No project data was returned.')
+        setProductionsLoading(false)
+        return
+      }
+
+      setLiveProductions(data)
+      setProductionsLoading(false)
+    }
+
+    loadProductions()
+    return () => { cancelled = true }
+  }, [])
+
+  const featuredProductions = isDemoMode ? productions : liveProductions
 
   return (
     <div className={styles.home} id="top">
@@ -106,20 +155,47 @@ export default function LandingPage({ onSignIn }) {
           <div className={`${styles.container} ${styles.disciplineBar}`}><span>LIVE WORK ACROSS</span><strong>Concerts</strong><i /><strong>Festivals</strong><i /><strong>Theatre</strong><i /><strong>Corporate</strong><i /><strong>Broadcast</strong></div>
         </section>
 
-        {/* Example project cards explain the kinds of opportunities the site supports. */}
+        {/* Preview cards stay illustrative; live mode reads public projects from Supabase. */}
         <section className={styles.section} id="productions">
           <div className={styles.container}>
             <div className={styles.sectionHead}>
-              <div><div className={styles.sectionKicker}>ON THE CALL SHEET</div><h2 className={styles.sectionTitle}>Featured live productions</h2><p className={styles.sectionSubtitle}>Example call-sheet previews. Browse current projects from the community.</p></div>
+              <div><div className={styles.sectionKicker}>ON THE CALL SHEET</div><h2 className={styles.sectionTitle}>Featured live productions</h2><p className={styles.sectionSubtitle}>{isDemoMode ? 'Example call-sheet previews. Browse current projects from the community.' : 'Recent crew calls posted by the community.'}</p></div>
               <Link className={styles.textLink} to="/discover">Explore all projects <span aria-hidden="true">→</span></Link>
             </div>
             <div className={styles.gigGrid}>
-              {productions.map((production, index) => (
-                <article className={styles.gigCard} key={production.title}>
-                  <div className={styles.gigImageWrap}><img className={styles.gigImage} src={production.image} alt="" loading="lazy" /><div className={styles.gigGradient} /><span className={`${styles.categoryPill} ${styles[`category${index}`]}`}>{production.type}</span><span className={styles.gigDate}>{production.date}</span></div>
-                  <div className={styles.gigBody}><div className={styles.gigRole}>{production.role}</div><h3 className={styles.gigTitle}>{production.title}</h3><div className={styles.venueName}>{production.location}</div><div className={styles.gigFooter}><span className={styles.crewChip}><span className={styles.crewOrb}>♧</span>{production.crew}</span><Link className={styles.viewShow} to="/discover">Explore <span aria-hidden="true">›</span></Link></div></div>
-                </article>
-              ))}
+              {productionsLoading && <p className={styles.productionsMessage} role="status">Loading featured productions…</p>}
+              {productionsError && <p className={styles.productionsMessage} role="alert">Couldn’t load featured productions: {productionsError}</p>}
+              {!isDemoMode && !productionsLoading && !productionsError && featuredProductions.length === 0 && (
+                <p className={styles.productionsMessage}>No productions have been posted yet. Check back soon or explore all projects.</p>
+              )}
+              {featuredProductions.map((production, index) => {
+                const demoProduction = isDemoMode
+                const roles = demoProduction ? production.role : (production.roles || []).join(' · ') || 'No crew roles listed'
+                const date = demoProduction ? production.date : formatProductionDate(production.event_date)
+                const location = demoProduction ? production.location : production.location || 'Location TBC'
+
+                return (
+                  <article className={styles.gigCard} key={production.id || production.title}>
+                    <div className={styles.gigImageWrap}>
+                      {demoProduction
+                        ? <img className={styles.gigImage} src={production.image} alt="" loading="lazy" />
+                        : <div className={styles.productionPlaceholder} aria-hidden="true">BACKLINE</div>}
+                      <div className={styles.gigGradient} />
+                      <span className={`${styles.categoryPill} ${styles[`category${index}`]}`}>{production.type}</span>
+                      <span className={styles.gigDate}>{date}</span>
+                    </div>
+                    <div className={styles.gigBody}>
+                      <div className={styles.gigRole}>{roles}</div>
+                      <h3 className={styles.gigTitle}>{production.title}</h3>
+                      <div className={styles.venueName}>{location}</div>
+                      <div className={styles.gigFooter}>
+                        <span className={styles.crewChip}><span className={styles.crewOrb}>♧</span>{demoProduction ? production.crew : `${production.roles?.length || 0} roles listed`}</span>
+                        <Link className={styles.viewShow} to="/discover">Explore <span aria-hidden="true">›</span></Link>
+                      </div>
+                    </div>
+                  </article>
+                )
+              })}
             </div>
           </div>
         </section>
