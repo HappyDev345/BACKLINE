@@ -77,13 +77,14 @@ export function AuthProvider({ children }) {
     if (error) throw error
   }
 
-  async function signOut() {
+  async function signOut(options) {
     if (isDemoMode) {
       setSession(null)
       setProfile(null)
       return
     }
-    await supabase.auth.signOut()
+    const { error } = await supabase.auth.signOut(options)
+    if (error) throw error
   }
 
   async function refreshProfile() {
