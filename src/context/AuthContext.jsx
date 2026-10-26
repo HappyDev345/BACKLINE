@@ -57,14 +57,15 @@ export function AuthProvider({ children }) {
       setSession(demoSession)
       demo.setProfiles((current) => current.map((profile) => profile.id === 'demo-user' ? person : profile))
       setProfile(person)
-      return
+      return { session: demoSession }
     }
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { display_name: displayName, username } },
     })
     if (error) throw error
+    return data
   }
 
   async function signIn(email, password) {

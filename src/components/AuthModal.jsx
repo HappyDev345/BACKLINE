@@ -12,6 +12,7 @@ export default function AuthModal({ open, onClose }) {
   const [displayName, setDisplayName] = useState('')
   const [username, setUsername] = useState('')
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [busy, setBusy] = useState(false)
 
   if (!open) return null
@@ -20,10 +21,18 @@ export default function AuthModal({ open, onClose }) {
     // Stop the browser from reloading the whole page when the form is submitted.
     e.preventDefault()
     setError('')
+    setSuccess('')
     setBusy(true)
     try {
       if (mode === 'in') await signIn(email, password)
-      else await signUp(email, password, displayName.trim(), username.trim().toLowerCase())
+      else {
+        const result = await signUp(email, password, displayName.trim(), username.trim().toLowerCase())
+        if (!isDemoMode && !result.session) {
+          setPassword('')
+          setSuccess('Account created. Check your email to confirm your address, then sign in.')
+          return
+        }
+      }
       onClose()
     } catch (err) {
       setError(err.message)
@@ -55,13 +64,14 @@ export default function AuthModal({ open, onClose }) {
               </div>
             </>
           )}
+          {success && <p className="hint" role="status">{success}</p>}
           <div className="field">
             <label htmlFor="auth-email">Email</label>
             <input id="auth-email" className="input" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
           </div>
           <div className="field">
             <label htmlFor="auth-pass">Password</label>
-            <input id="auth-pass" className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
+            <input id="auth-pass" className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={mode === 'up' && !isDemoMode ? 12 : 6} />
           </div>
           {error && <p className="error-text">{error}</p>}
           <button className="btn" style={{ width: '100%', marginTop: 16 }} disabled={busy}>

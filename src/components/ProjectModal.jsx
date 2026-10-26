@@ -40,7 +40,7 @@ export default function ProjectModal({ p, onClose, promptSignIn }) {
         setInterestSent(true)
         return
       }
-      const convId = await findOrCreateConversation(supabase, session.user.id, creator.id)
+      const convId = await findOrCreateConversation(supabase, creator.id)
       const { error: msgErr } = await supabase.from('messages').insert({
         conversation_id: convId,
         sender_id: session.user.id,

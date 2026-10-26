@@ -10,6 +10,9 @@ import ProjectCard from '../components/ProjectCard'
 import PostCard from '../components/PostCard'
 import { timeAgo } from '../lib/utils'
 
+const MAX_AVATAR_SIZE = 5 * 1024 * 1024
+const AVATAR_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+
 export default function ProfilePage({ promptSignIn }) {
   const { id } = useParams()
   const { session, profile: myProfile, refreshProfile, updateDemoProfile } = useAuth()
@@ -248,10 +251,16 @@ export default function ProfilePage({ promptSignIn }) {
               </div>
               <div className="field">
                 <label htmlFor="pf-avatar">Avatar image</label>
-                <input id="pf-avatar" className="input" type="file" accept="image/*"
+                <input id="pf-avatar" className="input" type="file" accept="image/jpeg,image/png,image/webp"
                   onChange={async e => {
                     const file = e.target.files[0]
                     if (!file) return
+                    if (!AVATAR_TYPES.has(file.type) || file.size > MAX_AVATAR_SIZE) {
+                      setError('Choose a JPEG, PNG, or WebP image up to 5 MB.')
+                      e.target.value = ''
+                      return
+                    }
+                    setError('')
                     if (isDemoMode) {
                       const avatar_url = URL.createObjectURL(file)
                       const updatedProfile = { ...target, avatar_url }
@@ -265,7 +274,8 @@ export default function ProfilePage({ promptSignIn }) {
                     const { error: upErr } = await supabase.storage.from('media').upload(path, file)
                     if (upErr) { setError(upErr.message); setBusy(false); return }
                     const { data } = supabase.storage.from('media').getPublicUrl(path)
-                    await supabase.from('profiles').update({ avatar_url: data.publicUrl }).eq('id', session.user.id)
+                    const { error: profileErr } = await supabase.from('profiles').update({ avatar_url: data.publicUrl }).eq('id', session.user.id)
+                    if (profileErr) { setError(profileErr.message); setBusy(false); return }
                     await refreshProfile()
                     load()
                     setBusy(false)

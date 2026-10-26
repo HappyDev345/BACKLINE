@@ -87,7 +87,7 @@ export default function PeoplePage({ promptSignIn }) {
         setBusyMsg('')
         return
       }
-      const convId = await findOrCreateConversation(supabase, session.user.id, id)
+      const convId = await findOrCreateConversation(supabase, id)
       navigate('/messages', { state: { open: convId } })
     } catch (e) {
       setBusyMsg('Could not open conversation: ' + e.message)

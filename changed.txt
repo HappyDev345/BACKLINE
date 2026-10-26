@@ -1,0 +1,19 @@
+I’ve made the first security changes in the project, but they won’t take effect on your live site until you apply the database migration and redeploy.
+
+Changes prepared
+Replaced direct chat creation with a database function that creates or reuses a two-person conversation. Clients can no longer add themselves to existing conversations.
+Updated conversation access rules so members can read a conversation, its membership, and its messages.
+Kept profile photos public, as you chose, while restricting uploads to the owner’s folder and JPEG/PNG/WebP images up to 5 MB.
+Set new connected-mode account creation to require a 12-character password. You’ll also need to set the matching password policy in Supabase.
+Improved the sign-up flow’s message when Supabase requires email confirmation.
+The setup is documented in README.md. The database changes are in the migration for an existing Supabase project and the schema for a new one.
+
+When you’re ready at home
+In Supabase, check Authentication settings: enable the Email provider and allow sign-ups if you want visitors to create accounts. Set the password policy to match the 12-character form requirement.
+Set the Supabase site URL and allowed redirect URLs for your Vercel address and local development.
+In the Supabase SQL Editor, run the migration above against the project you connected to Vercel.
+In Vercel, check that VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set, then redeploy. Do not put a service-role key in frontend environment variables.
+Test with two separate accounts: each should be able to access their own conversation, but not the other account’s conversations.
+Passwords are handled by Supabase Auth, but messages are not end-to-end encrypted—Supabase still stores their contents. Public profile photos and public directory profiles are visible by design. The login issue is still unresolved; when you check it later, the exact error will tell us whether it’s the sign-up setting, email confirmation, or a Vercel/Supabase URL configuration issue.
+
+git diff --check passed. I couldn’t run the production build because Node/npm aren’t installed in this environment, and I haven’t applied the migration to your Supabase project.

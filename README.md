@@ -49,6 +49,27 @@ Never put a Supabase service-role key in the frontend or commit credentials.
 Use a separate project and environment variables for preview deployments so
 test data cannot affect production.
 
+### Supabase Auth and security setup
+
+- In Supabase Auth settings, enable the Email provider and allow user sign-ups if
+  visitors should be able to create accounts. Configure the project's site URL
+  and allowed redirect URLs for both the Vercel deployment and local development.
+- Set a suitable password policy and decide whether email confirmation is
+  required. New connected-mode accounts require at least 12 characters in the
+  form; set the Supabase password policy to match. These are Supabase Auth
+  settings, not database schema settings.
+- Profile photos are intentionally public. The `media` bucket permits public
+  reads, while uploads are restricted to a folder named for the authenticated
+  user's ID, JPEG/PNG/WebP formats, and 5 MB.
+- Messages are not end-to-end encrypted. Row-level security restricts them to
+  conversation members. The direct-conversation RPC creates/reuses a
+  two-person conversation; clients cannot add themselves to existing
+  conversations directly.
+- If the schema was already applied to a Supabase project, run
+  `supabase/migrations/20261026_secure_direct_conversations.sql` in that
+  project's SQL Editor before using messaging. For a new project, the updated
+  `supabase/schema.sql` includes these policies and functions.
+
 ## Hosting direction
 
 For an eventual small full-stack launch, staying with **Vercel for the React

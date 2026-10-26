@@ -190,27 +190,93 @@ create policy "user unfollows" on public.follows for delete using (auth.uid() = 
 
 -- conversations / members / messages
 -- Private conversations and their messages are only visible to their members.
+create or replace function public.is_conversation_member(target_conversation_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.conversation_members cm
+    where cm.conversation_id = target_conversation_id
+      and cm.user_id = (select auth.uid())
+  );
+$$;
+
+revoke all on function public.is_conversation_member(uuid) from public;
+grant execute on function public.is_conversation_member(uuid) to anon, authenticated;
+
+create or replace function public.get_or_create_direct_conversation(target_user_id uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  current_user_id uuid := auth.uid();
+  conversation_id uuid;
+begin
+  if current_user_id is null then
+    raise exception 'Authentication required';
+  end if;
+  if target_user_id is null or target_user_id = current_user_id then
+    raise exception 'A conversation requires another user';
+  end if;
+  if not exists (select 1 from public.profiles p where p.id = target_user_id) then
+    raise exception 'User not found';
+  end if;
+
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(
+      least(current_user_id::text, target_user_id::text)
+        || ':' ||
+      greatest(current_user_id::text, target_user_id::text),
+      0
+    )
+  );
+
+  select mine.conversation_id
+  into conversation_id
+  from public.conversation_members mine
+  join public.conversation_members theirs
+    on theirs.conversation_id = mine.conversation_id
+  where mine.user_id = current_user_id
+    and theirs.user_id = target_user_id
+    and (
+      select pg_catalog.count(*)
+      from public.conversation_members members
+      where members.conversation_id = mine.conversation_id
+    ) = 2
+  limit 1;
+
+  if conversation_id is null then
+    insert into public.conversations default values
+    returning id into conversation_id;
+
+    insert into public.conversation_members (conversation_id, user_id)
+    values (conversation_id, current_user_id), (conversation_id, target_user_id);
+  end if;
+
+  return conversation_id;
+end;
+$$;
+
+revoke all on function public.get_or_create_direct_conversation(uuid) from public, anon;
+grant execute on function public.get_or_create_direct_conversation(uuid) to authenticated;
+
 create policy "member reads conversation" on public.conversations for select using (
-  exists (select 1 from public.conversation_members cm
-          where cm.conversation_id = id and cm.user_id = auth.uid()));
-create policy "authenticated starts conversation" on public.conversations for insert
-  with check (auth.role() = 'authenticated');
+  public.is_conversation_member(id));
 
 create policy "member reads membership" on public.conversation_members for select using (
-  exists (select 1 from public.conversation_members self
-          where self.conversation_id = conversation_id and self.user_id = auth.uid()));
--- NOTE (school-project simplification): any signed-in user can add themselves to a
--- conversation membership row. A production app should verify membership via invites.
-create policy "user joins membership" on public.conversation_members for insert
-  with check (auth.uid() = user_id);
+  public.is_conversation_member(conversation_id));
 
 create policy "member reads messages" on public.messages for select using (
-  exists (select 1 from public.conversation_members cm
-          where cm.conversation_id = conversation_id and cm.user_id = auth.uid()));
+  public.is_conversation_member(conversation_id));
 create policy "member sends message" on public.messages for insert with check (
   auth.uid() = sender_id and
-  exists (select 1 from public.conversation_members cm
-          where cm.conversation_id = conversation_id and cm.user_id = auth.uid()));
+  public.is_conversation_member(conversation_id));
 
 -- notifications: private to the recipient
 create policy "own notifs readable" on public.notifications for select using (auth.uid() = user_id);
@@ -305,13 +371,20 @@ create trigger on_message after insert on public.messages for each row execute f
 -- STORAGE: public bucket for avatars / post media
 -- Profile photos and other uploaded media are kept in this Supabase storage bucket.
 -- ============================================================
-insert into storage.buckets (id, name, public)
-values ('media', 'media', true)
-on conflict (id) do nothing;
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('media', 'media', true, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do update
+set public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
 
 create policy "media readable" on storage.objects for select using (bucket_id = 'media');
 create policy "authenticated uploads media" on storage.objects for insert
-  with check (bucket_id = 'media' and auth.role() = 'authenticated');
+  with check (
+    bucket_id = 'media'
+    and auth.role() = 'authenticated'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
 create policy "owners update media" on storage.objects for update
   using (bucket_id = 'media' and auth.uid() = owner);
 create policy "owners delete media" on storage.objects for delete
