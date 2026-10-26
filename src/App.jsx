@@ -12,6 +12,8 @@ import ProfilePage from './pages/ProfilePage'
 import MessagesPage from './pages/MessagesPage'
 import ForumPage from './pages/ForumPage'
 import NotificationsPage from './pages/NotificationsPage'
+import AccountSettingsPage from './pages/AccountSettingsPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import { isDemoMode } from './lib/supabase'
 
 export default function App() {
@@ -37,6 +39,8 @@ export default function App() {
         <Route path="/messages" element={<MessagesPage promptSignIn={promptSignIn} />} />
         <Route path="/forum" element={<ForumPage promptSignIn={promptSignIn} />} />
         <Route path="/notifications" element={<NotificationsPage promptSignIn={promptSignIn} />} />
+        <Route path="/settings" element={<AccountSettingsPage promptSignIn={promptSignIn} />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         {/* Unknown addresses get a friendly message instead of a blank screen. */}
         <Route path="*" element={<div className="auth-prompt"><h2>That page is off the call sheet</h2><p>We couldn’t find that page.</p><Link className="btn" style={{ display: 'inline-block', marginTop: 16, textDecoration: 'none' }} to="/">Back to BACKLINE</Link></div>} />
       </Routes>

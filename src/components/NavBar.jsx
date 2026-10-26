@@ -12,7 +12,19 @@ export default function NavBar({ onSignIn }) {
   const demo = useDemoData()
   const [unread, setUnread] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [signOutError, setSignOutError] = useState('')
   const navigate = useNavigate()
+
+  async function handleSignOut() {
+    setSignOutError('')
+    try {
+      await signOut()
+      setMenuOpen(false)
+      navigate('/')
+    } catch (error) {
+      setSignOutError(error.message)
+    }
+  }
 
   useEffect(() => {
     if (!session) { setUnread(0); return }
@@ -68,10 +80,12 @@ export default function NavBar({ onSignIn }) {
           </NavLink>
         </div>
         <div className="nav-actions">
-          {session && profile ? (
+          {session ? (
             <div className="nav-user">
-              <NavLink to={'/profile/' + profile.id}><Avatar profile={profile} /></NavLink>
-              <button className="btn btn-ghost btn-sm" onClick={async () => { await signOut(); setMenuOpen(false); navigate('/') }}>Sign out</button>
+              {profile && <NavLink to={'/profile/' + profile.id}><Avatar profile={profile} /></NavLink>}
+              <NavLink className="btn btn-ghost btn-sm" to="/settings" onClick={() => setMenuOpen(false)}>Settings</NavLink>
+              <button className="btn btn-ghost btn-sm" onClick={handleSignOut}>Sign out</button>
+              {signOutError && <span className="error-text" role="alert">{signOutError}</span>}
             </div>
           ) : (
             <button className="nav-sign-in" onClick={() => { setMenuOpen(false); onSignIn() }}>Sign in</button>
