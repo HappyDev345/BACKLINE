@@ -1,8 +1,8 @@
 # BACKLINE
 
-BACKLINE is a frontend-first community prototype for the people who make live
-events, film, music and photography happen. It is built with React and Vite;
-Supabase integration is retained for a future full-stack phase.
+BACKLINE is a community app for the people who make live events, film, music
+and photography happen. It is built with React and Vite, with Supabase for
+connected account and data flows.
 
 ## Run the prototype
 
@@ -25,9 +25,9 @@ Check the production bundle with:
 npm run build
 ```
 
-## Later: connect Supabase
+## Connect Supabase
 
-When you are ready to test the full-stack flows:
+To run the connected app:
 
 1. Create a separate Supabase project for development or preview testing.
 2. Run `supabase/schema.sql` in that project's SQL Editor.
@@ -49,6 +49,37 @@ Never put a Supabase service-role key in the frontend or commit credentials.
 Use a separate project and environment variables for preview deployments so
 test data cannot affect production.
 
+### Account settings and deletion
+
+Signed-in users can change their email and password from **Settings**. Email
+changes require confirmation through Supabase Auth. The sign-in dialog also
+offers password recovery; set the Supabase Auth **Site URL** and **Redirect
+URLs** to include the deployed site origin and its `/reset-password` path (and
+the local origin used for development).
+
+For an existing Supabase project, apply
+`supabase/migrations/20261026200000_own_media_uploads.sql` before enabling the
+new deletion flow. It restricts uploads to each signed-in user's own storage
+folder, which is also the folder removed during account deletion. New projects
+get the same rule from `supabase/schema.sql`.
+
+Account deletion is permanent: it removes the authenticated user, the profile
+and records linked through the schema's cascading foreign keys, plus uploaded
+media stored under that user's ID in the `media` bucket. The deletion endpoint
+is a Supabase Edge Function; deploy it to the same project as the frontend:
+
+```bash
+supabase functions deploy delete-account
+```
+
+The function verifies the caller's access token and derives the account ID from
+that verified identity. It uses Supabase's server-side `SUPABASE_SERVICE_ROLE_KEY`
+to remove media and the Auth user. Supabase provides this key to deployed Edge
+Functions; for local serving or a self-hosted environment, configure it as a
+function secret. Never add it to `VITE_*` variables, frontend code, or source
+control. Verify the function and deletion behavior in a non-production project
+before enabling account deletion for production users.
+
 ## Hosting direction
 
 For an eventual small full-stack launch, staying with **Vercel for the React
@@ -67,9 +98,11 @@ src/
   components/             Navigation, cards and modals
   context/                Auth and in-memory preview data
   lib/                    Supabase client, demo fixtures and helpers
-  pages/                  Landing, feed, discover, people and community pages
+  pages/                  Landing, feed, account settings, and community pages
 supabase/
-  schema.sql              Database schema and policies for the later backend
+  schema.sql              Database schema and row-level security policies
+  migrations/             Updates for already-connected Supabase projects
+  functions/              Supabase Edge Functions
 ```
 
 ## What the setup files do

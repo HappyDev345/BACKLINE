@@ -311,7 +311,10 @@ on conflict (id) do nothing;
 
 create policy "media readable" on storage.objects for select using (bucket_id = 'media');
 create policy "authenticated uploads media" on storage.objects for insert
-  with check (bucket_id = 'media' and auth.role() = 'authenticated');
+  with check (
+    bucket_id = 'media' and auth.role() = 'authenticated' and
+    (storage.foldername(name))[1] = auth.uid()::text
+  );
 create policy "owners update media" on storage.objects for update
   using (bucket_id = 'media' and auth.uid() = owner);
 create policy "owners delete media" on storage.objects for delete
