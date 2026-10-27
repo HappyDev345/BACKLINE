@@ -5,6 +5,7 @@ import { Routes, Route, useLocation, Link } from 'react-router-dom'
 import NavBar from './components/NavBar'
 import AuthModal from './components/AuthModal'
 import LandingPage from './pages/LandingPage'
+import AboutPage from './pages/AboutPage'
 import FeedPage from './pages/FeedPage'
 import DiscoverPage from './pages/DiscoverPage'
 import PeoplePage from './pages/PeoplePage'
@@ -31,6 +32,7 @@ export default function App() {
       {/* Each Route pairs a web address with the page component that handles it. */}
       <Routes>
         <Route path="/" element={<LandingPage onSignIn={promptSignIn} />} />
+        <Route path="/about" element={<AboutPage onSignIn={promptSignIn} />} />
         <Route path="/feed" element={<FeedPage promptSignIn={promptSignIn} />} />
         <Route path="/discover" element={<DiscoverPage promptSignIn={promptSignIn} />} />
         <Route path="/people" element={<PeoplePage promptSignIn={promptSignIn} />} />

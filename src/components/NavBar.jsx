@@ -8,7 +8,7 @@ import Avatar from './Avatar'
 import logo from '../../BackLine-logo.png'
 
 export default function NavBar({ onSignIn }) {
-  const { session, profile, signOut } = useAuth()
+  const { session, profile, loading, signOut } = useAuth()
   const demo = useDemoData()
   const [unread, setUnread] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -59,37 +59,46 @@ export default function NavBar({ onSignIn }) {
       <div className="nav-inner">
         <NavLink to="/" className="brand"><span className="brand-mark" aria-hidden="true"><img src={logo} alt="" /></span>BACKLINE</NavLink>
         <div id="site-nav-links" className={'nav-links' + (menuOpen ? ' is-open' : '')}>
-          {session && <NavLink to="/feed" onClick={() => setMenuOpen(false)}>Feed</NavLink>}
+          <NavLink to="/" onClick={() => setMenuOpen(false)}>Home</NavLink>
+          {session ? (
+            <NavLink to="/feed" onClick={() => setMenuOpen(false)}>Feed</NavLink>
+          ) : (
+            <NavLink to="/about" onClick={() => setMenuOpen(false)}>About</NavLink>
+          )}
           <NavLink to="/discover" onClick={() => setMenuOpen(false)}>Discover</NavLink>
-          <NavLink to="/people" onClick={() => setMenuOpen(false)}>People</NavLink>
-          <NavLink to="/forum" onClick={() => setMenuOpen(false)}>Forum</NavLink>
-          <NavLink to="/messages" onClick={() => setMenuOpen(false)}>Messages</NavLink>
-          <NavLink
-            to="/notifications"
-            className={({ isActive }) => 'bell-wrap' + (isActive ? ' active' : '')}
-            aria-label={`Notifications${unread > 0 ? `, ${unread} unread` : ''}`}
-            onClick={() => setMenuOpen(false)}
-          >
-            <span className="bell-icon">
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
-                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />
-              </svg>
-              {unread > 0 && <span className="badge-dot">{unread}</span>}
-            </span>
-            <span>Notifications</span>
-          </NavLink>
+          {session && (
+            <>
+              <NavLink to="/people" onClick={() => setMenuOpen(false)}>People</NavLink>
+              <NavLink to="/forum" onClick={() => setMenuOpen(false)}>Forum</NavLink>
+              <NavLink to="/messages" onClick={() => setMenuOpen(false)}>Messages</NavLink>
+              <NavLink
+                to="/notifications"
+                className={({ isActive }) => 'bell-wrap' + (isActive ? ' active' : '')}
+                aria-label={`Notifications${unread > 0 ? `, ${unread} unread` : ''}`}
+                onClick={() => setMenuOpen(false)}
+              >
+                <span className="bell-icon">
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
+                    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />
+                  </svg>
+                  {unread > 0 && <span className="badge-dot">{unread}</span>}
+                </span>
+                <span>Notifications</span>
+              </NavLink>
+            </>
+          )}
         </div>
         <div className="nav-actions">
           {session ? (
             <div className="nav-user">
-              {profile && <NavLink to={'/profile/' + profile.id}><Avatar profile={profile} /></NavLink>}
+              {profile && <NavLink to={'/profile/' + profile.id} onClick={() => setMenuOpen(false)}><Avatar profile={profile} /></NavLink>}
               <NavLink className="btn btn-ghost btn-sm" to="/settings" onClick={() => setMenuOpen(false)}>Settings</NavLink>
               <button className="btn btn-ghost btn-sm" onClick={handleSignOut}>Sign out</button>
               {signOutError && <span className="error-text" role="alert">{signOutError}</span>}
             </div>
-          ) : (
+          ) : !loading ? (
             <button className="nav-sign-in" onClick={() => { setMenuOpen(false); onSignIn() }}>Sign in</button>
-          )}
+          ) : null}
           <button
             className="nav-menu-toggle"
             type="button"

@@ -249,7 +249,17 @@ export default function LandingPage({ onSignIn }) {
       <footer className={styles.footer}>
         <div className={`${styles.container} ${styles.footerInner}`}>
           <Link to="/" className={styles.brand}><span className={styles.brandMark} aria-hidden="true"><img src={logo} alt="" /></span>BACKLINE</Link>
-          <div className={styles.footerLinks}><Link to="/feed">Community</Link><Link to="/discover">Projects</Link><Link to="/people">People</Link><Link to="/forum">Forum</Link></div>
+          <div className={styles.footerLinks}>
+            {session ? (
+              <>
+                <Link to="/feed">Community</Link><Link to="/discover">Projects</Link><Link to="/people">People</Link><Link to="/forum">Forum</Link>
+              </>
+            ) : (
+              <>
+                <Link to="/about">About</Link><Link to="/discover">Discover</Link>
+              </>
+            )}
+          </div>
           <span className={styles.footerNote}>The community behind every live show.</span>
         </div>
       </footer>

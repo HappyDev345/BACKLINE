@@ -4,6 +4,13 @@ BACKLINE is a community app for the people who make live events, film, music
 and photography happen. It is built with React and Vite, with Supabase for
 connected account and data flows.
 
+## Versioning
+
+The current release is listed in `package.json`. Record notable changes in
+`CHANGELOG.md` under the matching version. Use Semantic Versioning:
+increment the major number for incompatible changes, minor for new features,
+and patch for fixes.
+
 ## Run the prototype
 
 Requirements: Node.js 18+.
