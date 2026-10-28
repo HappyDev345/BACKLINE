@@ -3,6 +3,12 @@
 Notable changes to BACKLINE are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [1.2.4] - 2026-10-28
+
+- Added reporting for individual private messages. Only admins can review
+  message reports, and the staff workspace receives access only to the
+  reported message rather than the private conversation.
+
 ## [1.2.3] - 2026-10-28
 
 - Fixed the staff account lookup by explicitly selecting the account-owner

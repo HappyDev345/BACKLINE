@@ -8,6 +8,7 @@ import { useDemoData } from '../context/DemoContext'
 import { timeAgo } from '../lib/utils'
 import { getUserFacingError } from '../lib/errorMessages'
 import Avatar from '../components/Avatar'
+import ReportButton from '../components/ReportButton'
 
 export default function MessagesPage({ promptSignIn }) {
   const { session, profile } = useAuth()
@@ -198,6 +199,14 @@ export default function MessagesPage({ promptSignIn }) {
                     <div className="meta">{m.profiles?.display_name || ''} · {timeAgo(m.created_at)}</div>
                   )}
                   {m.body}
+                  {m.sender_id !== session.user.id && (
+                    <ReportButton
+                      targetType="message"
+                      targetId={m.id}
+                      ownerId={m.sender_id}
+                      promptSignIn={promptSignIn}
+                    />
+                  )}
                 </div>
               ))}
               <div ref={bottomRef} />

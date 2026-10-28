@@ -64,9 +64,13 @@ test data cannot affect production.
 
 ### Staff roles, reports, and moderation
 
-The roles/reporting migration adds the private staff workspace, account
-management, verification badges, user reports, content moderation, and the
-staff action history. After applying it, create the first admin from the
+The roles/reporting migrations add the private staff workspace, account
+management, verification badges, reports, content moderation, and the staff
+action history. Apply each migration once, in timestamp order. The later
+`20261028211000_report_private_messages.sql` migration enables reporting
+individual private messages. Only admins can review message reports, and staff
+can inspect only the specific reported message—not its conversation history.
+After applying the roles migration, create the first admin from the
 Supabase SQL Editor using an account that has already signed up. Replace the
 email below with the trusted operator's exact account email:
 
@@ -81,7 +85,7 @@ on conflict (user_id, role) do nothing;
 Only admins can grant or revoke further staff roles. Feed/forum moderators can
 review and moderate posts, threads, and comments; project moderators can
 moderate projects. Account suspension, staff appointments, and verified badges
-are admin-only. User reports are private to the reporter and authorized staff;
+are admin-only. Reports are private to the reporter and authorized staff;
 the reporting RPC limits submissions and the staff workspace records
 moderation actions and private case notes.
 
@@ -113,6 +117,9 @@ Before production, verify these cases in a separate Supabase project:
 - Feed/forum moderators can review and moderate posts, threads, and comments,
   but cannot review account reports, change roles, grant verification, or
   suspend accounts. Project moderators can act only on project reports.
+- Only admins can review message reports; a staff account cannot read unrelated
+  private messages, and a hidden message is no longer visible to conversation
+  participants.
 - Admins can manage roles, badges, and account standing; the last admin cannot
   remove their own admin role. Admins cannot suspend themselves; another
   admin's role must be revoked before that account can be suspended.

@@ -22,10 +22,20 @@ function ReportCase({ report, roles, onResolved }) {
   async function loadCase() {
     setError('')
     try {
-      const targetTable = report.target_type === 'user' ? 'profiles' : `${report.target_type}s`
-      const { data: targetData, error: targetError } = await supabase
-        .from(targetTable).select('*').eq('id', report.target_id).maybeSingle()
-      if (targetError) throw targetError
+      let targetData
+      if (report.target_type === 'message') {
+        const { data, error: targetError } = await supabase.rpc('get_reported_message', {
+          report_uuid: report.id,
+        })
+        if (targetError) throw targetError
+        targetData = data
+      } else {
+        const targetTable = report.target_type === 'user' ? 'profiles' : `${report.target_type}s`
+        const { data, error: targetError } = await supabase
+          .from(targetTable).select('*').eq('id', report.target_id).maybeSingle()
+        if (targetError) throw targetError
+        targetData = data
+      }
       setTarget(targetData)
       const { data: noteData, error: noteError } = await supabase
         .from('staff_notes')
@@ -104,13 +114,14 @@ function ReportCase({ report, roles, onResolved }) {
   const targetText = !target ? 'Reported item is unavailable or has been deleted.' :
     report.target_type === 'user' ? `${target.display_name || 'Unnamed account'}${target.username ? ` (@${target.username})` : ''}` :
       (target.title || target.body || target.display_name || 'Content has no text')
+  const targetTypeLabel = report.target_type === 'message' ? 'private message' : report.target_type
   const canResolve = report.status === 'open' || report.reviewer_id === session?.user?.id || isAdmin
 
   return (
     <article className="staff-card">
       <div className="staff-card-head">
         <div>
-          <strong>{report.target_type} report</strong>
+          <strong>{targetTypeLabel} report</strong>
           <span className="badge badge-type">{report.status}</span>
         </div>
         <span className="muted">{timeAgo(report.created_at)}</span>
@@ -118,6 +129,11 @@ function ReportCase({ report, roles, onResolved }) {
       <p><b>Reason:</b> {report.reason}</p>
       {report.details && <p><b>Reporter details:</b> {report.details}</p>}
       <p className="staff-target"><b>Reported item:</b> {targetText}</p>
+      {report.target_type === 'message' && target && (
+        <p className="hint">
+          Sent by {target.profiles?.display_name || 'Unknown account'} · {timeAgo(target.created_at)}
+        </p>
+      )}
       <p className="hint">Target ID: {report.target_id}</p>
       {report.status === 'open' || report.status === 'in_review' ? (
         <>
