@@ -49,11 +49,12 @@ To run the connected app:
 4. Restart Vite. When both values are present, the app uses Supabase instead of
    preview mode.
 
-In connected mode, community records come from Supabase; demo profiles, calls,
-discussions, and other sample records are limited to preview mode. The public
-landing page's Featured live productions section shows the three newest public
-projects from Supabase, or an empty state when no projects have been posted.
-Preview mode keeps the illustrative sample content throughout the app.
+In connected mode, community records come from Supabase; illustrative demo
+profiles, calls, discussions, and other sample records are limited to preview
+mode. The public landing page shows the three newest public projects, crew
+profiles, crew calls, and forum discussions from Supabase, with empty states
+when no records are available. Preview mode keeps the illustrative sample
+content throughout the app.
 
 Never put a Supabase service-role key in the frontend or commit credentials.
 Use a separate project and environment variables for preview deployments so
