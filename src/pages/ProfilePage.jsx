@@ -60,15 +60,17 @@ export default function ProfilePage({ promptSignIn }) {
       const { data: ps, error: postsError } = await supabase.from('posts').select('*, profiles:author_id(id, display_name, role_title, avatar_url), likes(count), comments(count)').eq('author_id', targetId).order('created_at', { ascending: false }).limit(20)
       if (postsError) throw postsError
       setPosts(ps || [])
-      const { count: f1, error: followersError } = await supabase.from('follows').select('id', { count: 'exact', head: true }).eq('followee_id', targetId)
+      const { count: f1, error: followersError } = await supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('followee_id', targetId)
       if (followersError) throw followersError
-      const { count: f2, error: followingError } = await supabase.from('follows').select('id', { count: 'exact', head: true }).eq('follower_id', targetId)
+      const { count: f2, error: followingError } = await supabase.from('follows').select('followee_id', { count: 'exact', head: true }).eq('follower_id', targetId)
       if (followingError) throw followingError
       setStats({ followers: f1 || 0, following: f2 || 0 })
       if (session) {
-        const { data: f, error: followError } = await supabase.from('follows').select('id').eq('follower_id', session.user.id).eq('followee_id', targetId).maybeSingle()
+        const { data: f, error: followError } = await supabase.from('follows').select('followee_id').eq('follower_id', session.user.id).eq('followee_id', targetId).maybeSingle()
         if (followError) throw followError
         setIsFollowing(!!f)
+      } else {
+        setIsFollowing(false)
       }
     } catch (profileLoadError) {
       setLoadError(getUserFacingError(profileLoadError, 'We couldn’t load this profile right now. Please try again.'))

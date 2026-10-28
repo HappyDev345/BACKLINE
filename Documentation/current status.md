@@ -34,7 +34,7 @@ Unknown routes show a friendly not-found message.
 
 ## What each part of the site does
 
-- **Landing:** `LandingPage.jsx` introduces the service and links to the community pages. All illustrative crew, call, and discussion showcases appear only in preview mode. Featured projects use examples in preview mode and the three newest projects in connected mode, with an empty state when there are no public projects.
+- **Landing:** `LandingPage.jsx` introduces the service and links to the community pages. Illustrative crew, call, and discussion content appears only in preview mode. Featured projects, crew profiles, crew calls, and forum discussions use Supabase records in connected mode and show loading, error, or empty states as appropriate.
 - **Discover:** `DiscoverPage.jsx` searches, filters, and sorts projects; signed-in users can save listings and publish projects. `ProjectCard.jsx` displays a listing, and `ProjectModal.jsx` shows its details. “Express interest” opens a conversation and sends a message to the creator; it does **not** submit a formal application or assign someone to the project.
 - **People and profiles:** `PeoplePage.jsx` searches people by name, username, role, location, or skill. Signed-in users can follow or message them. `ProfilePage.jsx` shows a person’s bio, skills, projects, posts, and follow counts. Owners can edit profile details and, when connected, upload an avatar to Supabase Storage.
 - **Feed:** `FeedPage.jsx` requires sign-in. Members can switch between everyone’s posts and posts by people they follow, then publish, like, and comment. `PostCard.jsx` handles post display and loading comments when expanded.

@@ -1,10 +1,12 @@
 // The public introduction to BACKLINE. Demo content appears only in preview
-// mode; connected mode uses public project records from Supabase.
+// mode; connected mode uses public profiles and project records from Supabase.
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { isDemoMode, supabase } from '../lib/supabase'
 import { getUserFacingError } from '../lib/errorMessages'
+import Avatar from '../components/Avatar'
+import { timeAgo } from '../lib/utils'
 import logo from '../../BackLine-logo.png'
 import styles from './LandingPage.module.css'
 
@@ -74,6 +76,15 @@ export default function LandingPage({ onSignIn }) {
   const [liveProductions, setLiveProductions] = useState([])
   const [productionsLoading, setProductionsLoading] = useState(!isDemoMode)
   const [productionsError, setProductionsError] = useState('')
+  const [liveCrew, setLiveCrew] = useState([])
+  const [crewLoading, setCrewLoading] = useState(!isDemoMode)
+  const [crewError, setCrewError] = useState('')
+  const [liveCalls, setLiveCalls] = useState([])
+  const [callsLoading, setCallsLoading] = useState(!isDemoMode)
+  const [callsError, setCallsError] = useState('')
+  const [liveDiscussions, setLiveDiscussions] = useState([])
+  const [discussionsLoading, setDiscussionsLoading] = useState(!isDemoMode)
+  const [discussionsError, setDiscussionsError] = useState('')
 
   useEffect(() => {
     if (isDemoMode) return
@@ -109,11 +120,69 @@ export default function LandingPage({ onSignIn }) {
       }
     }
 
+    async function loadCrew() {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, display_name, role_title, location, skills, avatar_url')
+          .order('created_at', { ascending: false })
+          .limit(3)
+
+        if (error) throw error
+        if (!cancelled) setLiveCrew(data || [])
+      } catch (error) {
+        if (!cancelled) setCrewError(getUserFacingError(error, 'We couldn’t load crew profiles right now. Please try again later.'))
+      } finally {
+        if (!cancelled) setCrewLoading(false)
+      }
+    }
+
+    async function loadCalls() {
+      try {
+        const { data, error } = await supabase
+          .from('projects')
+          .select('id, title, type, event_date, roles, location, compensation, created_at')
+          .order('created_at', { ascending: false })
+          .limit(3)
+
+        if (error) throw error
+        if (!cancelled) setLiveCalls(data || [])
+      } catch (error) {
+        if (!cancelled) setCallsError(getUserFacingError(error, 'We couldn’t load crew calls right now. Please try again later.'))
+      } finally {
+        if (!cancelled) setCallsLoading(false)
+      }
+    }
+
+    async function loadDiscussions() {
+      try {
+        const { data, error } = await supabase
+          .from('posts')
+          .select('id, category, title, body, created_at, comments(count)')
+          .not('category', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(3)
+
+        if (error) throw error
+        if (!cancelled) setLiveDiscussions(data || [])
+      } catch (error) {
+        if (!cancelled) setDiscussionsError(getUserFacingError(error, 'We couldn’t load discussions right now. Please try again later.'))
+      } finally {
+        if (!cancelled) setDiscussionsLoading(false)
+      }
+    }
+
     loadProductions()
+    loadCrew()
+    loadCalls()
+    loadDiscussions()
     return () => { cancelled = true }
   }, [])
 
   const featuredProductions = isDemoMode ? productions : liveProductions
+  const featuredCrew = isDemoMode ? crew : liveCrew
+  const featuredCalls = isDemoMode ? calls : liveCalls
+  const featuredDiscussions = isDemoMode ? discussions : liveDiscussions
 
   return (
     <div className={styles.home} id="top">
@@ -211,42 +280,90 @@ export default function LandingPage({ onSignIn }) {
           </div>
         </section>
 
-        {isDemoMode && <section className={`${styles.section} ${styles.sectionTinted}`} id="crew">
+        <section className={`${styles.section} ${styles.sectionTinted}`} id="crew">
           <div className={styles.container}>
-            <div className={styles.sectionHead}><div><div className={styles.sectionKicker}>THE PEOPLE BEHIND THE SHOW</div><h2 className={styles.sectionTitle}>Meet your next crew mate</h2><p className={styles.sectionSubtitle}>Example profiles showing the range of roles and skills you can find in the community.</p></div><Link className={styles.textLink} to="/people">Find crew <span aria-hidden="true">→</span></Link></div>
+            <div className={styles.sectionHead}><div><div className={styles.sectionKicker}>THE PEOPLE BEHIND THE SHOW</div><h2 className={styles.sectionTitle}>Meet your next crew mate</h2><p className={styles.sectionSubtitle}>{isDemoMode ? 'Example profiles showing the range of roles and skills you can find in the community.' : 'Crew profiles from the BACKLINE community.'}</p></div><Link className={styles.textLink} to="/people">Find crew <span aria-hidden="true">→</span></Link></div>
             <div className={styles.crewGrid}>
-              {crew.map(person => (
-                <article className={`${styles.crewCard} ${styles[`crew${person.tone[0].toUpperCase()}${person.tone.slice(1)}`]}`} key={person.name}>
-                  <div className={styles.crewTop}><div className={styles.portraitWrap}><img src={person.image} alt="" loading="lazy" /><span className={styles.statusDot} /></div><span className={styles.availability}>Available for work</span></div>
-                  <div className={styles.crewInfo}><h3 className={styles.crewName}>{person.name}</h3><div className={styles.crewRole}>{person.role}</div><div className={styles.crewLocation}>⌖ {person.location}</div><div className={styles.skillList}>{person.skills.map(skill => <span key={skill}>{skill}</span>)}</div></div>
-                  <div className={styles.crewBottom}><span>AV professional</span><Link className={styles.profileAction} to="/people">View people <span aria-hidden="true">→</span></Link></div>
-                </article>
-              ))}
+              {!isDemoMode && crewLoading && <p className={styles.productionsMessage} role="status">Loading crew profiles…</p>}
+              {!isDemoMode && crewError && <p className={styles.productionsMessage} role="alert">{crewError}</p>}
+              {!isDemoMode && !crewLoading && !crewError && featuredCrew.length === 0 && <p className={styles.productionsMessage}>No crew profiles yet. Be one of the first to join the community.</p>}
+              {featuredCrew.map((person, index) => {
+                const demoPerson = isDemoMode
+                const name = demoPerson ? person.name : person.display_name || 'Unnamed crew member'
+                const tone = demoPerson ? person.tone : ['blue', 'purple', 'orange'][index % 3]
+                const profile = demoPerson
+                  ? { display_name: person.name, avatar_url: person.image }
+                  : person
+
+                return (
+                  <article className={`${styles.crewCard} ${styles[`crew${tone[0].toUpperCase()}${tone.slice(1)}`]}`} key={person.id || name}>
+                    <div className={styles.crewTop}><div className={styles.portraitWrap}><Avatar profile={profile} size="lg" />{demoPerson && <span className={styles.statusDot} />}</div>{demoPerson && <span className={styles.availability}>Available for work</span>}</div>
+                    <div className={styles.crewInfo}><h3 className={styles.crewName}>{name}</h3><div className={styles.crewRole}>{demoPerson ? person.role : person.role_title || 'Crew member'}</div><div className={styles.crewLocation}>⌖ {person.location || 'Location not set'}</div><div className={styles.skillList}>{(person.skills || []).map(skill => <span key={skill}>{skill}</span>)}</div></div>
+                    <div className={styles.crewBottom}><span>{demoPerson ? 'AV professional' : 'CREW PROFILE'}</span><Link className={styles.profileAction} to={demoPerson ? '/people' : `/profile/${person.id}`}>{demoPerson ? 'View people' : 'View profile'} <span aria-hidden="true">→</span></Link></div>
+                  </article>
+                )
+              })}
             </div>
           </div>
-        </section>}
+        </section>
 
-        {isDemoMode && <section className={`${styles.section} ${styles.crewCallsSection}`} id="calls">
+        <section className={`${styles.section} ${styles.crewCallsSection}`} id="calls">
           <div className={styles.container}>
-            <div className={styles.sectionHead}><div><div className={styles.sectionKicker}>YOUR NEXT CALL TIME</div><h2 className={styles.sectionTitle}>Crew calls worth a look</h2><p className={styles.sectionSubtitle}>Example calls for a preview. Find current opportunities in projects.</p></div><Link className={styles.textLink} to="/discover">Browse projects <span aria-hidden="true">→</span></Link></div>
+            <div className={styles.sectionHead}><div><div className={styles.sectionKicker}>YOUR NEXT CALL TIME</div><h2 className={styles.sectionTitle}>Crew calls worth a look</h2><p className={styles.sectionSubtitle}>{isDemoMode ? 'Example calls for a preview. Find current opportunities in projects.' : 'Recent opportunities posted by the BACKLINE community.'}</p></div><Link className={styles.textLink} to="/discover">Browse projects <span aria-hidden="true">→</span></Link></div>
             <div className={styles.callsList}>
-              {calls.map(call => (
-                <article className={styles.callCard} key={call.title}>
-                  <div className={`${styles.callDepartment} ${styles[`call${call.tone[0].toUpperCase()}${call.tone.slice(1)}`]}`}><span aria-hidden="true">✳</span>{call.department}</div>
-                  <div className={styles.callMain}><h3 className={styles.callTitle}>{call.title}</h3><div className={styles.callDetails}><span>⌖ {call.location}</span><span>▣ {call.date}</span><strong>{call.rate}</strong></div><div className={`${styles.skillList} ${styles.callSkills}`}>{call.skills.map(skill => <span key={skill}>{skill}</span>)}</div></div>
-                  <Link className={`${styles.button} ${styles.secondary} ${styles.callAction}`} to="/discover">View projects <span aria-hidden="true">→</span></Link>
-                </article>
-              ))}
+              {!isDemoMode && callsLoading && <p className={styles.productionsMessage} role="status">Loading crew calls…</p>}
+              {!isDemoMode && callsError && <p className={styles.productionsMessage} role="alert">{callsError}</p>}
+              {!isDemoMode && !callsLoading && !callsError && featuredCalls.length === 0 && <p className={styles.productionsMessage}>No crew calls yet. Check back soon or browse all projects.</p>}
+              {featuredCalls.map((call, index) => {
+                const demoCall = isDemoMode
+                const tone = demoCall ? call.tone : ['purple', 'orange', 'blue'][index % 3]
+                const callSkills = demoCall ? call.skills : call.roles || []
+
+                return (
+                  <article className={styles.callCard} key={call.id || call.title}>
+                    <div className={`${styles.callDepartment} ${styles[`call${tone[0].toUpperCase()}${tone.slice(1)}`]}`}><span aria-hidden="true">✳</span>{demoCall ? call.department : (call.type || 'CREW CALL').toUpperCase()}</div>
+                    <div className={styles.callMain}><h3 className={styles.callTitle}>{call.title}</h3><div className={styles.callDetails}><span>⌖ {call.location || 'Location TBC'}</span><span>▣ {demoCall ? call.date : formatProductionDate(call.event_date)}</span><strong>{demoCall ? call.rate : call.compensation || 'Rate TBC'}</strong></div><div className={`${styles.skillList} ${styles.callSkills}`}>{callSkills.length > 0 ? callSkills.map(skill => <span key={skill}>{skill}</span>) : <span>Roles not listed</span>}</div></div>
+                    <Link className={`${styles.button} ${styles.secondary} ${styles.callAction}`} to="/discover">View projects <span aria-hidden="true">→</span></Link>
+                  </article>
+                )
+              })}
             </div>
           </div>
-        </section>}
+        </section>
 
-        {isDemoMode && <section className={`${styles.section} ${styles.forumSection}`} id="forum">
+        <section className={`${styles.section} ${styles.forumSection}`} id="forum">
           <div className={`${styles.container} ${styles.forumLayout}`}>
-            <div className={styles.forumIntro}><div className={styles.sectionKicker}>BACKSTAGE DISCUSSIONS</div><h2 className={styles.sectionTitle}>Practical answers from people on the ground.</h2><p className={styles.sectionSubtitle}>Example topics for a preview. Ask questions and compare workflows in the community forum.</p><Link className={`${styles.button} ${styles.secondary}`} to="/forum">Join the discussion <span aria-hidden="true">→</span></Link></div>
-            <div className={styles.discussionList}>{discussions.map((discussion, index) => <Link className={styles.discussionCard} to="/forum" key={discussion.title}><span className={`${styles.discussionNumber} ${styles[`number${discussion.tone[0].toUpperCase()}${discussion.tone.slice(1)}`]}`}>0{index + 1}</span><span className={styles.discussionContent}><span className={styles.discussionTopline}><span className={styles.discussionTag}>{discussion.category}</span><span className={styles.discussionTime}>{discussion.time}</span></span><strong className={styles.discussionTitle}>{discussion.title}</strong><span className={styles.discussionMeta}>{discussion.replies}</span></span><span className={styles.discussionArrow} aria-hidden="true">›</span></Link>)}</div>
+            <div className={styles.forumIntro}><div className={styles.sectionKicker}>BACKSTAGE DISCUSSIONS</div><h2 className={styles.sectionTitle}>Practical answers from people on the ground.</h2><p className={styles.sectionSubtitle}>{isDemoMode ? 'Example topics for a preview. Ask questions and compare workflows in the community forum.' : 'Recent questions and knowledge shared by the BACKLINE community.'}</p><Link className={`${styles.button} ${styles.secondary}`} to="/forum">Join the discussion <span aria-hidden="true">→</span></Link></div>
+            <div className={styles.discussionList}>
+              {!isDemoMode && discussionsLoading && <p className={styles.productionsMessage} role="status">Loading discussions…</p>}
+              {!isDemoMode && discussionsError && <p className={styles.productionsMessage} role="alert">{discussionsError}</p>}
+              {!isDemoMode && !discussionsLoading && !discussionsError && featuredDiscussions.length === 0 && <p className={styles.productionsMessage}>No discussions yet. Start the first conversation in the forum.</p>}
+              {featuredDiscussions.map((discussion, index) => {
+                const demoDiscussion = isDemoMode
+                const tone = demoDiscussion ? discussion.tone : ['blue', 'purple', 'orange'][index % 3]
+                const title = demoDiscussion ? discussion.title : discussion.title || discussion.body
+                const meta = demoDiscussion
+                  ? discussion.replies
+                  : `${discussion.comments?.[0]?.count || 0} replies`
+
+                return (
+                  <Link className={styles.discussionCard} to="/forum" key={discussion.id || title}>
+                    <span className={`${styles.discussionNumber} ${styles[`number${tone[0].toUpperCase()}${tone.slice(1)}`]}`}>0{index + 1}</span>
+                    <span className={styles.discussionContent}>
+                      <span className={styles.discussionTopline}>
+                        <span className={styles.discussionTag}>{discussion.category}</span>
+                        <span className={styles.discussionTime}>{demoDiscussion ? discussion.time : timeAgo(discussion.created_at)}</span>
+                      </span>
+                      <strong className={styles.discussionTitle}>{title}</strong>
+                      <span className={styles.discussionMeta}>{meta}</span>
+                    </span>
+                    <span className={styles.discussionArrow} aria-hidden="true">›</span>
+                  </Link>
+                )
+              })}
+            </div>
           </div>
-        </section>}
+        </section>
 
         {/* Repeat the invitation at the bottom for visitors who reach the footer. */}
         <section className={styles.ctaSection}>
