@@ -73,6 +73,11 @@ can inspect only the specific reported message—not its conversation history.
 For existing projects that already applied earlier migrations, also apply
 `20261028212000_private_report_notifications.sql` to remove reporter access to
 report records and enable generic review notifications.
+Apply `20261028213600_hide_suspended_profiles.sql` to hide suspended profiles
+from the People directory and other public profile reads; the account owner
+and admins retain access. Existing public content authored by a suspended
+account may remain visible, but the account is anonymized as “Unknown User”
+and no public link to its profile is shown.
 After applying the roles migration, create the first admin from the
 Supabase SQL Editor using an account that has already signed up. Replace the
 email below with the trusted operator's exact account email:

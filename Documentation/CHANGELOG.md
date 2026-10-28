@@ -3,6 +3,17 @@
 Notable changes to BACKLINE are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [1.2.7] - 2026-10-28
+
+- Anonymized suspended account references across posts, replies, projects,
+  messages, and notifications as “Unknown User”; removed links to unavailable
+  profiles while preserving relevant content.
+
+## [1.2.6] - 2026-10-28
+
+- Hid suspended profiles from public profile reads, including the People
+  directory, while preserving access for the account owner and admins.
+
 ## [1.2.5] - 2026-10-28
 
 - Removed the user-facing report history page and restricted report records to

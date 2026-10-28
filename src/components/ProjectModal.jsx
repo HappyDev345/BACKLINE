@@ -13,6 +13,7 @@ export default function ProjectModal({ p, onClose, promptSignIn }) {
   const { session, profile } = useAuth()
   const demo = useDemoData()
   const creator = p.profiles || {}
+  const creatorVisible = !!creator.id
   const [interestSent, setInterestSent] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -89,19 +90,19 @@ export default function ProjectModal({ p, onClose, promptSignIn }) {
         <div className="modal-section">
           <h4>Posted by</h4>
           <div className="creator-box">
-            <Avatar profile={creator} />
+            <Avatar profile={creatorVisible ? creator : { display_name: 'Unknown User' }} />
             <div>
-              <div className="name">{creator.display_name || 'Unknown'}</div>
-              <ProfileBadges profile={creator} />
-              <div className="sub">{creator.role_title || 'Creator'}{creator.location ? ' · ' + creator.location : ''}</div>
+              <div className="name">{creatorVisible ? creator.display_name || 'Unknown User' : 'Unknown User'}</div>
+              {creatorVisible && <ProfileBadges profile={creator} />}
+              {creatorVisible && <div className="sub">{creator.role_title || 'Creator'}{creator.location ? ' · ' + creator.location : ''}</div>}
             </div>
           </div>
         </div>
         {error && <p className="error-text" role="alert">{error}</p>}
         <ReportButton targetType="project" targetId={p.id} ownerId={p.creator_id} promptSignIn={promptSignIn} />
         <div className="modal-actions">
-          <button className="btn" onClick={expressInterest} disabled={busy || interestSent || creator.id === session?.user?.id}>
-            {interestSent ? 'Interest sent \u2713' : creator.id === session?.user?.id ? 'Your project' : 'Express interest'}
+          <button className="btn" onClick={expressInterest} disabled={busy || interestSent || !creatorVisible || creator.id === session?.user?.id}>
+            {interestSent ? 'Interest sent \u2713' : creatorVisible ? creator.id === session?.user?.id ? 'Your project' : 'Express interest' : 'Creator unavailable'}
           </button>
           <button className="btn btn-ghost" onClick={onClose}>Close</button>
         </div>

@@ -204,7 +204,7 @@ export default function ForumPage({ promptSignIn }) {
               {(t.body || '').slice(0, 140)}{(t.body || '').length > 140 ? '…' : ''}
             </p>
             <p className="muted" style={{ fontSize: '0.8rem', marginTop: 8 }}>
-              {t.profiles?.display_name || 'Unknown'} · {timeAgo(t.created_at)} · {t.comments?.[0]?.count || 0} replies
+              {t.profiles?.id ? t.profiles.display_name || 'Unknown User' : 'Unknown User'} · {timeAgo(t.created_at)} · {t.comments?.[0]?.count || 0} replies
             </p>
           </div>
           <div className="thread-report">
@@ -251,10 +251,10 @@ export default function ForumPage({ promptSignIn }) {
             <h2>{open.title}</h2>
             {actionError && <p className="error-text" role="alert">{actionError}</p>}
             <div className="post-head" style={{ marginBottom: 14 }}>
-              <Avatar profile={open.profiles} />
+              <Avatar profile={open.profiles?.id ? open.profiles : { display_name: 'Unknown User' }} />
               <div>
-                <div className="who">{open.profiles?.display_name || 'Unknown'}</div>
-                <ProfileBadges profile={open.profiles} />
+                <div className="who">{open.profiles?.id ? open.profiles.display_name || 'Unknown User' : 'Unknown User'}</div>
+                {open.profiles?.id && <ProfileBadges profile={open.profiles} />}
                 <div className="sub">{timeAgo(open.created_at)}</div>
               </div>
             </div>
@@ -264,10 +264,10 @@ export default function ForumPage({ promptSignIn }) {
               <h4>{replies.length} repl{replies.length === 1 ? 'y' : 'ies'}</h4>
               {replies.map(r => (
                 <div className="comment" key={r.id}>
-                  <Avatar profile={r.profiles} />
+                  <Avatar profile={r.profiles?.id ? r.profiles : { display_name: 'Unknown User' }} />
                   <div>
-                    <div className="who">{r.profiles?.display_name || 'Unknown'} <span className="muted" style={{ fontWeight: 400, fontSize: '0.75rem' }}>· {timeAgo(r.created_at)}</span></div>
-                    <ProfileBadges profile={r.profiles} />
+                    <div className="who">{r.profiles?.id ? r.profiles.display_name || 'Unknown User' : 'Unknown User'} <span className="muted" style={{ fontWeight: 400, fontSize: '0.75rem' }}>· {timeAgo(r.created_at)}</span></div>
+                    {r.profiles?.id && <ProfileBadges profile={r.profiles} />}
                     <div className="txt">{r.body}</div>
                   </div>
                   <ReportButton targetType="comment" targetId={r.id} ownerId={r.author_id} promptSignIn={promptSignIn} />

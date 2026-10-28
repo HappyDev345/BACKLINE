@@ -22,6 +22,7 @@ export default function PostCard({ post, liked, onLike, promptSignIn }) {
   const [error, setError] = useState('')
 
   const likeCount = post.likes?.[0]?.count || 0
+  const authorName = author.display_name || 'Unknown User'
 
   async function toggleComments() {
     setError('')
@@ -90,11 +91,13 @@ export default function PostCard({ post, liked, onLike, promptSignIn }) {
   return (
     <article className="post-card">
       <div className="post-head">
-        <Link to={'/profile/' + author.id}><Avatar profile={author} /></Link>
+        {author.id ? <Link to={'/profile/' + author.id}><Avatar profile={author} /></Link> : <Avatar profile={{ display_name: authorName }} />}
         <div>
-          <Link to={'/profile/' + author.id} style={{ textDecoration: 'none' }}><div className="who">{author.display_name || 'Unknown'}</div></Link>
-          <ProfileBadges profile={author} />
-          <div className="sub">{author.role_title ? author.role_title + ' · ' : ''}{timeAgo(post.created_at)}</div>
+          {author.id
+            ? <Link to={'/profile/' + author.id} style={{ textDecoration: 'none' }}><div className="who">{authorName}</div></Link>
+            : <div className="who">{authorName}</div>}
+          {author.id && <ProfileBadges profile={author} />}
+          <div className="sub">{author.id && author.role_title ? author.role_title + ' · ' : ''}{timeAgo(post.created_at)}</div>
         </div>
       </div>
       {post.title && <h3 className="post-title">{post.title}</h3>}
@@ -115,8 +118,8 @@ export default function PostCard({ post, liked, onLike, promptSignIn }) {
             <div className="comment" key={c.id}>
               <Avatar profile={c.profiles} />
               <div>
-                <div className="who">{c.profiles?.display_name || 'Unknown'}</div>
-                <ProfileBadges profile={c.profiles} />
+                <div className="who">{c.profiles?.id ? c.profiles.display_name || 'Unknown User' : 'Unknown User'}</div>
+                {c.profiles?.id && <ProfileBadges profile={c.profiles} />}
                 <div className="txt">{c.body}</div>
               </div>
               <ReportButton targetType="comment" targetId={c.id} ownerId={c.author_id} promptSignIn={promptSignIn} />

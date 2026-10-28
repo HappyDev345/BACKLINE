@@ -5,6 +5,7 @@ import ProfileBadges from './ProfileBadges'
 
 export default function ProjectCard({ p, saved, onToggleSave, onOpen, promptSignIn }) {
   const creator = p.profiles || {}
+  const creatorVisible = !!creator.id
   return (
     <article className="card">
       <div className="card-top">
@@ -33,11 +34,11 @@ export default function ProjectCard({ p, saved, onToggleSave, onOpen, promptSign
           {(p.roles || []).map(r => <span key={r} className="role-chip">{r}</span>)}
         </div>
         <div className="card-creator">
-          <Avatar profile={creator} />
+          <Avatar profile={creatorVisible ? creator : { display_name: 'Unknown User' }} />
           <div>
-            <div className="name">{creator.display_name || 'Unknown'}</div>
-            <ProfileBadges profile={creator} />
-            <div className="role">{creator.role_title || 'Creator'}</div>
+            <div className="name">{creatorVisible ? creator.display_name || 'Unknown User' : 'Unknown User'}</div>
+            {creatorVisible && <ProfileBadges profile={creator} />}
+            {creatorVisible && <div className="role">{creator.role_title || 'Creator'}</div>}
           </div>
         </div>
       </button>

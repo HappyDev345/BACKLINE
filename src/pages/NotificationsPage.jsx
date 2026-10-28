@@ -107,9 +107,9 @@ export default function NotificationsPage({ promptSignIn }) {
             <div className="txt">{PRIVATE_REPORT_NOTIFICATIONS[n.type]}</div>
           ) : (
             <>
-              <Avatar profile={n.profiles} />
+              <Avatar profile={n.profiles?.id ? n.profiles : { display_name: 'Unknown User' }} />
               <div className="txt">
-                <b>{n.profiles?.display_name || 'Someone'}</b> {LABELS[n.type] || 'interacted with you'}
+                <b>{n.profiles?.id ? n.profiles.display_name || 'Unknown User' : 'Unknown User'}</b> {LABELS[n.type] || 'interacted with you'}
               </div>
             </>
           )}

@@ -73,10 +73,11 @@ export default function MessagesPage({ promptSignIn }) {
       const lastByConv = {}
       for (const m of lastMsgs || []) if (!lastByConv[m.conversation_id]) lastByConv[m.conversation_id] = m
       const otherByConv = {}
-      for (const m of allMem || []) if (m.user_id !== session.user.id) otherByConv[m.conversation_id] = profMap[m.user_id]
+      for (const m of allMem || []) if (m.user_id !== session.user.id) {
+        otherByConv[m.conversation_id] = profMap[m.user_id] || { id: null, display_name: 'Unknown User' }
+      }
       const list = ids
         .map(id => ({ id, other: otherByConv[id], last: lastByConv[id] }))
-        .filter(c => c.other)
         .sort((a, b) => new Date(b.last?.created_at || 0) - new Date(a.last?.created_at || 0))
       setOthers(Object.fromEntries(list.map(c => [c.id, c.other])))
       setConvs(list)
@@ -180,7 +181,7 @@ export default function MessagesPage({ promptSignIn }) {
           <button key={c.id} type="button" className={'conv-item' + (active === c.id ? ' active' : '')} onClick={() => setActive(c.id)}>
             <Avatar profile={c.other} />
             <div style={{ minWidth: 0 }}>
-              <div className="name">{c.other.display_name || 'Unknown'}</div>
+              <div className="name">{c.other.display_name || 'Unknown User'}</div>
               <div className="preview">{c.last ? c.last.body : 'Start the conversation'}</div>
             </div>
           </button>
@@ -196,7 +197,7 @@ export default function MessagesPage({ promptSignIn }) {
               {msgs.map(m => (
                 <div key={m.id} className={'msg' + (m.sender_id === session.user.id ? ' mine' : '')}>
                   {m.sender_id !== session.user.id && (
-                    <div className="meta">{m.profiles?.display_name || ''} · {timeAgo(m.created_at)}</div>
+                    <div className="meta">{m.profiles?.id ? m.profiles.display_name || 'Unknown User' : 'Unknown User'} · {timeAgo(m.created_at)}</div>
                   )}
                   {m.body}
                   {m.sender_id !== session.user.id && (
