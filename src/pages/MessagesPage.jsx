@@ -19,6 +19,7 @@ export default function MessagesPage({ promptSignIn }) {
   const [msgs, setMsgs] = useState([])
   const [text, setText] = useState('')
   const [error, setError] = useState('')
+  const [sending, setSending] = useState(false)
   const bottomRef = useRef(null)
 
   useEffect(() => { if (session) loadConvs() }, [session])
@@ -31,8 +32,9 @@ export default function MessagesPage({ promptSignIn }) {
     const ch = supabase.channel('conv-' + active)
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: 'conversation_id=eq.' + active },
-        (payload) => {
-          setMsgs(curr => curr.some(m => m.id === payload.new.id) ? curr : [...curr, payload.new])
+        () => {
+          loadMsgs()
+          loadConvs()
         })
       .subscribe()
     return () => { supabase.removeChannel(ch) }
@@ -104,8 +106,10 @@ export default function MessagesPage({ promptSignIn }) {
 
   async function send(e) {
     e.preventDefault()
-    if (!text.trim() || !session) return
+    const body = text.trim()
+    if (!body || !session || !active || sending) return
     setError('')
+    setSending(true)
     // Add a temporary message to both the open chat and its conversation preview.
     if (isDemoMode) {
       const message = {
@@ -125,18 +129,30 @@ export default function MessagesPage({ promptSignIn }) {
         ? { ...conversation, last: message }
         : conversation))
       setText('')
+      setSending(false)
       return
     }
     try {
-      const { error } = await supabase.from('messages').insert({
+      const { data: message, error } = await supabase.from('messages').insert({
         conversation_id: active,
         sender_id: session.user.id,
-        body: text.trim(),
-      })
+        body,
+      }).select('*, profiles:sender_id(id, display_name, avatar_url)').single()
       if (error) throw error
+      if (message) {
+        setMsgs((current) => current.some((item) => item.id === message.id) ? current : [...current, message])
+        setConvs((current) => current.map((conversation) => conversation.id === active
+          ? { ...conversation, last: message }
+          : conversation))
+      }
       setText('')
+      await loadConvs()
     } catch (error) {
-      setError(getUserFacingError(error, 'We couldn’t send your message right now. Please try again.'))
+      setError(error?.code === '42501'
+        ? 'This account or conversation is not currently allowed to send messages. Older chats may need a membership review before access can be restored.'
+        : getUserFacingError(error, 'We couldn’t send your message right now. Please try again.'))
+    } finally {
+      setSending(false)
     }
   }
 
@@ -156,7 +172,7 @@ export default function MessagesPage({ promptSignIn }) {
       <aside className="conv-list">
         {convs.length === 0 && !error && (
           <div className="panel-empty">
-            No conversations yet.<br />Find people on the People page and say hello.
+            No conversations available.<br />Find people on the People page and say hello. Older chats may need a membership review before access can be restored.
           </div>
         )}
         {convs.map(c => (
@@ -193,7 +209,7 @@ export default function MessagesPage({ promptSignIn }) {
                 value={text}
                 onChange={e => setText(e.target.value)}
               />
-              <button className="btn" type="submit" disabled={!text.trim()}>Send</button>
+              <button className="btn" type="submit" disabled={!text.trim() || sending}>{sending ? 'Sending…' : 'Send'}</button>
             </form>
           </>
         ) : (

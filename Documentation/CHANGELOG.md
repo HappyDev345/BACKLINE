@@ -3,6 +3,17 @@
 Notable changes to BACKLINE are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [1.2.2] - 2026-10-28
+
+- Fixed sent messages not appearing until a later refresh when Realtime updates
+  are delayed or unavailable; successful sends now add the saved message to the
+  open chat and refresh the conversation preview.
+
+## [1.2.1] - 2026-10-28
+
+- Fixed navigation overflow by tightening the wide-screen layout and moving
+  navigation links and account actions into a responsive menu on smaller screens.
+
 ## [1.2.0] - 2026-10-28
 
 - Added admin, feed/forum moderator, and project moderator roles, plus
