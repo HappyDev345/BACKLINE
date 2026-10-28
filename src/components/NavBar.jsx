@@ -4,6 +4,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { isDemoMode, supabase } from '../lib/supabase'
 import { useDemoData } from '../context/DemoContext'
+import { getUserFacingError } from '../lib/errorMessages'
 import Avatar from './Avatar'
 import logo from '../../BackLine-logo.png'
 
@@ -13,6 +14,7 @@ export default function NavBar({ onSignIn }) {
   const [unread, setUnread] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
   const [signOutError, setSignOutError] = useState('')
+  const [notificationError, setNotificationError] = useState('')
   const navigate = useNavigate()
 
   async function handleSignOut() {
@@ -22,12 +24,12 @@ export default function NavBar({ onSignIn }) {
       setMenuOpen(false)
       navigate('/')
     } catch (error) {
-      setSignOutError(error.message)
+      setSignOutError(getUserFacingError(error, 'We couldn’t sign you out right now. Please try again.'))
     }
   }
 
   useEffect(() => {
-    if (!session) { setUnread(0); return }
+    if (!session) { setUnread(0); setNotificationError(''); return }
     // Preview mode counts sample alerts locally instead of contacting Supabase.
     if (isDemoMode) {
       setUnread(demo.notifications.filter((notification) => notification.user_id === session.user.id && !notification.read).length)
@@ -35,10 +37,16 @@ export default function NavBar({ onSignIn }) {
     }
     // In the connected app, load the count and listen for new alerts in real time.
     async function loadCount() {
-      const { count } = await supabase
-        .from('notifications').select('id', { count: 'exact', head: true })
-        .eq('user_id', session.user.id).eq('read', false)
-      setUnread(count || 0)
+      setNotificationError('')
+      try {
+        const { count, error } = await supabase
+          .from('notifications').select('id', { count: 'exact', head: true })
+          .eq('user_id', session.user.id).eq('read', false)
+        if (error) throw error
+        setUnread(count || 0)
+      } catch (error) {
+        setNotificationError(getUserFacingError(error, 'Your notification count may be out of date. Please refresh to try again.'))
+      }
     }
     loadCount()
     const recalc = () => loadCount()
@@ -95,6 +103,7 @@ export default function NavBar({ onSignIn }) {
               <NavLink className="btn btn-ghost btn-sm" to="/settings" onClick={() => setMenuOpen(false)}>Settings</NavLink>
               <button className="btn btn-ghost btn-sm" onClick={handleSignOut}>Sign out</button>
               {signOutError && <span className="error-text" role="alert">{signOutError}</span>}
+              {notificationError && <span className="error-text" role="alert">{notificationError}</span>}
             </div>
           ) : !loading ? (
             <button className="nav-sign-in" onClick={() => { setMenuOpen(false); onSignIn() }}>Sign in</button>

@@ -9,6 +9,7 @@ import Avatar from '../components/Avatar'
 import ProjectCard from '../components/ProjectCard'
 import PostCard from '../components/PostCard'
 import { timeAgo } from '../lib/utils'
+import { getUserFacingError } from '../lib/errorMessages'
 
 export default function ProfilePage({ promptSignIn }) {
   const { id } = useParams()
@@ -25,6 +26,8 @@ export default function ProfilePage({ promptSignIn }) {
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState(null)
   const [error, setError] = useState('')
+  const [actionError, setActionError] = useState('')
+  const [loadError, setLoadError] = useState('')
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
@@ -33,6 +36,7 @@ export default function ProfilePage({ promptSignIn }) {
   }, [targetId, session])
 
   async function load() {
+    setLoadError('')
     // Assemble the profile and its related activity from sample or online data.
     if (isDemoMode) {
       const person = demo.profiles.find((profile) => profile.id === targetId)
@@ -46,18 +50,28 @@ export default function ProfilePage({ promptSignIn }) {
       setIsFollowing(demo.follows.some((follow) => follow.follower_id === session?.user?.id && follow.followee_id === targetId))
       return
     }
-    const { data: p } = await supabase.from('profiles').select('*').eq('id', targetId).single()
-    setTarget(p)
-    const { data: projs } = await supabase.from('projects').select('*, profiles:creator_id(id, display_name, role_title, avatar_url, location)').eq('creator_id', targetId).order('created_at', { ascending: false })
-    setProjects(projs || [])
-    const { data: ps } = await supabase.from('posts').select('*, profiles:author_id(id, display_name, role_title, avatar_url), likes(count), comments(count)').eq('author_id', targetId).order('created_at', { ascending: false }).limit(20)
-    setPosts(ps || [])
-    const { count: f1 } = await supabase.from('follows').select('id', { count: 'exact', head: true }).eq('followee_id', targetId)
-    const { count: f2 } = await supabase.from('follows').select('id', { count: 'exact', head: true }).eq('follower_id', targetId)
-    setStats({ followers: f1 || 0, following: f2 || 0 })
-    if (session) {
-      const { data: f } = await supabase.from('follows').select('id').eq('follower_id', session.user.id).eq('followee_id', targetId).maybeSingle()
-      setIsFollowing(!!f)
+    try {
+      const { data: p, error: profileError } = await supabase.from('profiles').select('*').eq('id', targetId).single()
+      if (profileError) throw profileError
+      setTarget(p)
+      const { data: projs, error: projectsError } = await supabase.from('projects').select('*, profiles:creator_id(id, display_name, role_title, avatar_url, location)').eq('creator_id', targetId).order('created_at', { ascending: false })
+      if (projectsError) throw projectsError
+      setProjects(projs || [])
+      const { data: ps, error: postsError } = await supabase.from('posts').select('*, profiles:author_id(id, display_name, role_title, avatar_url), likes(count), comments(count)').eq('author_id', targetId).order('created_at', { ascending: false }).limit(20)
+      if (postsError) throw postsError
+      setPosts(ps || [])
+      const { count: f1, error: followersError } = await supabase.from('follows').select('id', { count: 'exact', head: true }).eq('followee_id', targetId)
+      if (followersError) throw followersError
+      const { count: f2, error: followingError } = await supabase.from('follows').select('id', { count: 'exact', head: true }).eq('follower_id', targetId)
+      if (followingError) throw followingError
+      setStats({ followers: f1 || 0, following: f2 || 0 })
+      if (session) {
+        const { data: f, error: followError } = await supabase.from('follows').select('id').eq('follower_id', session.user.id).eq('followee_id', targetId).maybeSingle()
+        if (followError) throw followError
+        setIsFollowing(!!f)
+      }
+    } catch (profileLoadError) {
+      setLoadError(getUserFacingError(profileLoadError, 'We couldn’t load this profile right now. Please try again.'))
     }
   }
 
@@ -97,19 +111,24 @@ export default function ProfilePage({ promptSignIn }) {
       setEditing(false)
       return
     }
-    const { error } = await supabase.from('profiles').update({
-      display_name: form.display_name.trim(),
-      username: form.username.trim().toLowerCase() || null,
-      role_title: form.role_title.trim(),
-      location: form.location.trim(),
-      bio: form.bio.trim(),
-      skills: form.skills.split(',').map(s => s.trim()).filter(Boolean),
-    }).eq('id', session.user.id)
-    setBusy(false)
-    if (error) return setError(error.message)
-    setEditing(false)
-    await refreshProfile()
-    load()
+    try {
+      const { error } = await supabase.from('profiles').update({
+        display_name: form.display_name.trim(),
+        username: form.username.trim().toLowerCase() || null,
+        role_title: form.role_title.trim(),
+        location: form.location.trim(),
+        bio: form.bio.trim(),
+        skills: form.skills.split(',').map(s => s.trim()).filter(Boolean),
+      }).eq('id', session.user.id)
+      if (error) throw error
+      setEditing(false)
+      await refreshProfile()
+      load()
+    } catch (saveError) {
+      setError(getUserFacingError(saveError, 'We couldn’t save your profile right now. Please try again.'))
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function toggleFollow() {
@@ -123,12 +142,16 @@ export default function ProfilePage({ promptSignIn }) {
       setStats((current) => ({ ...current, followers: current.followers + (isFollowing ? -1 : 1) }))
       return
     }
-    if (isFollowing) {
-      await supabase.from('follows').delete().eq('follower_id', session.user.id).eq('followee_id', targetId)
-    } else {
-      await supabase.from('follows').insert({ follower_id: session.user.id, followee_id: targetId })
+    setActionError('')
+    try {
+      const { error: followError } = isFollowing
+        ? await supabase.from('follows').delete().eq('follower_id', session.user.id).eq('followee_id', targetId)
+        : await supabase.from('follows').insert({ follower_id: session.user.id, followee_id: targetId })
+      if (followError) throw followError
+      load()
+    } catch (followError) {
+      setActionError(getUserFacingError(followError, 'We couldn’t update your connection right now. Please try again.'))
     }
-    load()
   }
 
   if (!targetId) {
@@ -141,12 +164,13 @@ export default function ProfilePage({ promptSignIn }) {
     )
   }
 
-  if (!target) return <div className="page"><p className="muted">Loading profile…</p></div>
+  if (!target) return <div className="page">{loadError ? <p className="error-text" role="alert">{loadError} <button className="clear-btn" onClick={load}>Try again</button></p> : <p className="muted">Loading profile…</p>}</div>
 
   return (
     <>
       {/* Profile details and connection statistics appear above the activity tabs. */}
       <div className="profile-head">
+        {(loadError || actionError) && <p className="error-text" role="alert">{loadError || actionError} {loadError && <button className="clear-btn" onClick={load}>Try again</button>}</p>}
         <div className="profile-card">
           <div className="profile-top">
             <Avatar profile={target} size="lg" />
@@ -261,18 +285,24 @@ export default function ProfilePage({ promptSignIn }) {
                       return
                     }
                     setBusy(true); setError('')
-                    const path = session.user.id + '/' + Date.now() + '-' + file.name
-                    const { error: upErr } = await supabase.storage.from('media').upload(path, file)
-                    if (upErr) { setError(upErr.message); setBusy(false); return }
-                    const { data } = supabase.storage.from('media').getPublicUrl(path)
-                    await supabase.from('profiles').update({ avatar_url: data.publicUrl }).eq('id', session.user.id)
-                    await refreshProfile()
-                    load()
-                    setBusy(false)
+                    try {
+                      const path = session.user.id + '/' + Date.now() + '-' + file.name
+                      const { error: upErr } = await supabase.storage.from('media').upload(path, file)
+                      if (upErr) throw upErr
+                      const { data } = supabase.storage.from('media').getPublicUrl(path)
+                      const { error: updateError } = await supabase.from('profiles').update({ avatar_url: data.publicUrl }).eq('id', session.user.id)
+                      if (updateError) throw updateError
+                      await refreshProfile()
+                      load()
+                    } catch (uploadError) {
+                      setError(getUserFacingError(uploadError, 'We couldn’t update your profile photo right now. Please try again.'))
+                    } finally {
+                      setBusy(false)
+                    }
                   }} />
                 <span className="hint">Uploads to the public "media" storage bucket.</span>
               </div>
-              {error && <p className="error-text">{error}</p>}
+              {error && <p className="error-text" role="alert">{error}</p>}
               <div className="modal-actions">
                 <button className="btn" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button>
                 <button className="btn btn-ghost" type="button" onClick={() => setEditing(false)}>Cancel</button>

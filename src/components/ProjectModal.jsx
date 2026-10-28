@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { isDemoMode, supabase } from '../lib/supabase'
 import { useDemoData } from '../context/DemoContext'
 import { findOrCreateConversation } from '../lib/conversations'
+import { getUserFacingError } from '../lib/errorMessages'
 import Avatar from './Avatar'
 
 export default function ProjectModal({ p, onClose, promptSignIn }) {
@@ -49,7 +50,7 @@ export default function ProjectModal({ p, onClose, promptSignIn }) {
       if (msgErr) throw msgErr
       setInterestSent(true)
     } catch (e) {
-      setError(e.message)
+      setError(getUserFacingError(e, 'We couldn’t send your message right now. Please try again.'))
     } finally {
       setBusy(false)
     }
@@ -93,7 +94,7 @@ export default function ProjectModal({ p, onClose, promptSignIn }) {
             </div>
           </div>
         </div>
-        {error && <p className="error-text">{error}</p>}
+        {error && <p className="error-text" role="alert">{error}</p>}
         <div className="modal-actions">
           <button className="btn" onClick={expressInterest} disabled={busy || interestSent || creator.id === session?.user?.id}>
             {interestSent ? 'Interest sent \u2713' : creator.id === session?.user?.id ? 'Your project' : 'Express interest'}

@@ -1,13 +1,14 @@
-// The public introduction to BACKLINE. Featured projects use sample content in
-// preview mode and public project records when Supabase is connected.
+// The public introduction to BACKLINE. Demo content appears only in preview
+// mode; connected mode uses public project records from Supabase.
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { isDemoMode, supabase } from '../lib/supabase'
+import { getUserFacingError } from '../lib/errorMessages'
 import logo from '../../BackLine-logo.png'
 import styles from './LandingPage.module.css'
 
-// These example listings make the home page feel like a real crew community.
+// Example listings are shown only in preview mode.
 const productions = [
   {
     title: 'Sydney Harbour Light Festival',
@@ -44,14 +45,14 @@ const crew = [
   { name: 'Jamie Okafor', role: 'Camera Operator', location: 'Coogee, NSW', skills: ['Sony FX9', 'Jib', 'Broadcast'], image: 'https://images.unsplash.com/photo-1711473610014-0505db6f6702?auto=format&fit=crop&w=180&q=80', tone: 'orange' },
 ]
 
-// A few sample calls explain how role, location, dates, and pay appear together.
+// Example calls are shown only in preview mode.
 const calls = [
   { department: 'LIGHTING', title: 'Lighting crew needed for a festival', location: 'Sydney, NSW', date: '12–14 Nov 2026', rate: 'A$450 / day', skills: ['grandMA3', 'IPAF', 'Outdoor'], tone: 'purple' },
   { department: 'VIDEO', title: 'Camera operator required for a live broadcast', location: 'Alexandria, NSW', date: '06 Dec 2026', rate: 'A$400 / day', skills: ['Sony', 'Long lens', 'Comms'], tone: 'orange' },
   { department: 'AUDIO', title: 'Monitor engineer needed for a touring show', location: 'UK & EU tour', date: '10–18 Dec 2026', rate: 'Tour rate', skills: ['DiGiCo', 'IEM', 'EU passport'], tone: 'blue' },
 ]
 
-// Sample discussion titles encourage visitors to explore the forum.
+// Example discussion titles are shown only in preview mode.
 const discussions = [
   { category: 'AUDIO & SIGNAL', title: 'Best way to prep an RF coordination file for a festival?', replies: '18 replies', time: '2h ago', tone: 'blue' },
   { category: 'LIGHTING & CONTROL', title: 'Showfile handover tips when joining a touring rig', replies: '12 replies', time: '5h ago', tone: 'purple' },
@@ -80,26 +81,32 @@ export default function LandingPage({ onSignIn }) {
     let cancelled = false
 
     async function loadProductions() {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('id, title, type, event_date, roles, location, created_at')
-        .order('created_at', { ascending: false })
-        .limit(3)
+      try {
+        const { data, error } = await supabase
+          .from('projects')
+          .select('id, title, type, event_date, roles, location, created_at')
+          .order('created_at', { ascending: false })
+          .limit(3)
 
-      if (cancelled) return
-      if (error) {
-        setProductionsError(error.message)
-        setProductionsLoading(false)
-        return
-      }
-      if (!data) {
-        setProductionsError('No project data was returned.')
-        setProductionsLoading(false)
-        return
-      }
+        if (cancelled) return
+        if (error) {
+          setProductionsError(getUserFacingError(error, 'We couldn’t load featured productions right now. Please try again later.'))
+          setProductionsLoading(false)
+          return
+        }
+        if (!data) {
+          setProductionsError('We couldn’t load featured productions right now. Please try again later.')
+          setProductionsLoading(false)
+          return
+        }
 
-      setLiveProductions(data)
-      setProductionsLoading(false)
+        setLiveProductions(data)
+        setProductionsLoading(false)
+      } catch (error) {
+        if (cancelled) return
+        setProductionsError(getUserFacingError(error, 'We couldn’t load featured productions right now. Please try again later.'))
+        setProductionsLoading(false)
+      }
     }
 
     loadProductions()
@@ -127,9 +134,9 @@ export default function LandingPage({ onSignIn }) {
                   : <button className={`${styles.button} ${styles.secondary}`} onClick={onSignIn}>Create your crew profile</button>}
               </div>
               <div className={styles.heroProof}>
-                <div className={styles.avatarStack} aria-hidden="true">
+                {isDemoMode && <div className={styles.avatarStack} aria-hidden="true">
                   {crew.map(person => <img key={person.name} src={person.image} alt="" />)}
-                </div>
+                </div>}
                 <div><strong>Made for live-event professionals</strong><span>from first call to final cue</span></div>
               </div>
             </div>
@@ -137,19 +144,23 @@ export default function LandingPage({ onSignIn }) {
               <div className={styles.heroImageWrap}>
                 <img className={styles.heroImage} src="https://images.unsplash.com/photo-1606150119193-69ed87009dcf?auto=format&fit=crop&w=1200&q=85" alt="Production crew working at a live show" />
                 <div className={styles.imageShade} />
-                <div className={styles.imageLabel}><span>MAIN STAGE · SHOW FILE</span><strong>SYDNEY CBD</strong></div>
-                <div className={styles.liveBadge}><span /> SHOW LIVE</div>
+                {isDemoMode && <>
+                  <div className={styles.imageLabel}><span>MAIN STAGE · SHOW FILE</span><strong>SYDNEY CBD</strong></div>
+                  <div className={styles.liveBadge}><span /> SHOW LIVE</div>
+                </>}
                 <div className={styles.productionLabels}><span>SOUND</span><span>LIGHTING</span><span>VIDEO</span><span>STAGE</span></div>
               </div>
-              <Link to="/discover" className={`${styles.floatingCard} ${styles.floatingProject}`}>
-                <span className={`${styles.floatingIcon} ${styles.purple}`}>✦</span>
-                <span><small>CREW CALL MATCH</small><strong>Lighting tech · Sydney</strong></span>
-                <span aria-hidden="true">›</span>
-              </Link>
-              <div className={`${styles.floatingCard} ${styles.floatingCrew}`}>
-                <div className={styles.miniAvatars}>{crew.slice(0, 2).map(person => <img key={person.name} src={person.image} alt="" />)}</div>
-                <span><strong>All departments</strong><small>on comms for this show</small></span>
-              </div>
+              {isDemoMode && <>
+                <Link to="/discover" className={`${styles.floatingCard} ${styles.floatingProject}`}>
+                  <span className={`${styles.floatingIcon} ${styles.purple}`}>✦</span>
+                  <span><small>CREW CALL MATCH</small><strong>Lighting tech · Sydney</strong></span>
+                  <span aria-hidden="true">›</span>
+                </Link>
+                <div className={`${styles.floatingCard} ${styles.floatingCrew}`}>
+                  <div className={styles.miniAvatars}>{crew.slice(0, 2).map(person => <img key={person.name} src={person.image} alt="" />)}</div>
+                  <span><strong>All departments</strong><small>on comms for this show</small></span>
+                </div>
+              </>}
             </div>
           </div>
           <div className={`${styles.container} ${styles.disciplineBar}`}><span>LIVE WORK ACROSS</span><strong>Concerts</strong><i /><strong>Festivals</strong><i /><strong>Theatre</strong><i /><strong>Corporate</strong><i /><strong>Broadcast</strong></div>
@@ -164,7 +175,7 @@ export default function LandingPage({ onSignIn }) {
             </div>
             <div className={styles.gigGrid}>
               {productionsLoading && <p className={styles.productionsMessage} role="status">Loading featured productions…</p>}
-              {productionsError && <p className={styles.productionsMessage} role="alert">Couldn’t load featured productions: {productionsError}</p>}
+              {productionsError && <p className={styles.productionsMessage} role="alert">{productionsError}</p>}
               {!isDemoMode && !productionsLoading && !productionsError && featuredProductions.length === 0 && (
                 <p className={styles.productionsMessage}>No productions have been posted yet. Check back soon or explore all projects.</p>
               )}
@@ -200,8 +211,7 @@ export default function LandingPage({ onSignIn }) {
           </div>
         </section>
 
-        {/* Sample crew profiles show the people visitors could discover. */}
-        <section className={`${styles.section} ${styles.sectionTinted}`} id="crew">
+        {isDemoMode && <section className={`${styles.section} ${styles.sectionTinted}`} id="crew">
           <div className={styles.container}>
             <div className={styles.sectionHead}><div><div className={styles.sectionKicker}>THE PEOPLE BEHIND THE SHOW</div><h2 className={styles.sectionTitle}>Meet your next crew mate</h2><p className={styles.sectionSubtitle}>Example profiles showing the range of roles and skills you can find in the community.</p></div><Link className={styles.textLink} to="/people">Find crew <span aria-hidden="true">→</span></Link></div>
             <div className={styles.crewGrid}>
@@ -214,10 +224,9 @@ export default function LandingPage({ onSignIn }) {
               ))}
             </div>
           </div>
-        </section>
+        </section>}
 
-        {/* Example calls and discussions preview the community's content. */}
-        <section className={`${styles.section} ${styles.crewCallsSection}`} id="calls">
+        {isDemoMode && <section className={`${styles.section} ${styles.crewCallsSection}`} id="calls">
           <div className={styles.container}>
             <div className={styles.sectionHead}><div><div className={styles.sectionKicker}>YOUR NEXT CALL TIME</div><h2 className={styles.sectionTitle}>Crew calls worth a look</h2><p className={styles.sectionSubtitle}>Example calls for a preview. Find current opportunities in projects.</p></div><Link className={styles.textLink} to="/discover">Browse projects <span aria-hidden="true">→</span></Link></div>
             <div className={styles.callsList}>
@@ -230,15 +239,14 @@ export default function LandingPage({ onSignIn }) {
               ))}
             </div>
           </div>
-        </section>
+        </section>}
 
-        {/* These topic previews link directly to the full forum page. */}
-        <section className={`${styles.section} ${styles.forumSection}`} id="forum">
+        {isDemoMode && <section className={`${styles.section} ${styles.forumSection}`} id="forum">
           <div className={`${styles.container} ${styles.forumLayout}`}>
             <div className={styles.forumIntro}><div className={styles.sectionKicker}>BACKSTAGE DISCUSSIONS</div><h2 className={styles.sectionTitle}>Practical answers from people on the ground.</h2><p className={styles.sectionSubtitle}>Example topics for a preview. Ask questions and compare workflows in the community forum.</p><Link className={`${styles.button} ${styles.secondary}`} to="/forum">Join the discussion <span aria-hidden="true">→</span></Link></div>
             <div className={styles.discussionList}>{discussions.map((discussion, index) => <Link className={styles.discussionCard} to="/forum" key={discussion.title}><span className={`${styles.discussionNumber} ${styles[`number${discussion.tone[0].toUpperCase()}${discussion.tone.slice(1)}`]}`}>0{index + 1}</span><span className={styles.discussionContent}><span className={styles.discussionTopline}><span className={styles.discussionTag}>{discussion.category}</span><span className={styles.discussionTime}>{discussion.time}</span></span><strong className={styles.discussionTitle}>{discussion.title}</strong><span className={styles.discussionMeta}>{discussion.replies}</span></span><span className={styles.discussionArrow} aria-hidden="true">›</span></Link>)}</div>
           </div>
-        </section>
+        </section>}
 
         {/* Repeat the invitation at the bottom for visitors who reach the footer. */}
         <section className={styles.ctaSection}>

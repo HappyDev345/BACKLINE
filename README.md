@@ -23,8 +23,9 @@ npm run dev
 Without both `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, the app runs in
 **preview mode** with sample projects, crew, posts, discussions, messages and
 notifications. You can sign in with a valid email and a password of at least
-six characters to try the interactive flows. Preview changes live in memory
-and reset when you refresh; they are not sent to Supabase.
+six characters, or choose **Continue as sample user**, to try the interactive
+flows. Preview changes live in memory and reset when you refresh; they are not
+sent to Supabase.
 
 Check the production bundle with:
 
@@ -48,9 +49,11 @@ To run the connected app:
 4. Restart Vite. When both values are present, the app uses Supabase instead of
    preview mode.
 
-In connected mode, the public landing page's Featured live productions section
-shows the three newest public projects from Supabase. Preview mode keeps its
-illustrative sample cards.
+In connected mode, community records come from Supabase; demo profiles, calls,
+discussions, and other sample records are limited to preview mode. The public
+landing page's Featured live productions section shows the three newest public
+projects from Supabase, or an empty state when no projects have been posted.
+Preview mode keeps the illustrative sample content throughout the app.
 
 Never put a Supabase service-role key in the frontend or commit credentials.
 Use a separate project and environment variables for preview deployments so

@@ -5,6 +5,7 @@ import { isDemoMode, supabase } from '../lib/supabase'
 import { useDemoData } from '../context/DemoContext'
 import PostCard from '../components/PostCard'
 import Avatar from '../components/Avatar'
+import { getUserFacingError } from '../lib/errorMessages'
 
 export default function FeedPage({ promptSignIn }) {
   const { session, profile, loading } = useAuth()
@@ -16,8 +17,10 @@ export default function FeedPage({ promptSignIn }) {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
 
   async function load() {
+    setError('')
     // Preview mode uses local sample posts; connected mode requests recent posts.
     if (isDemoMode) {
       setPosts(demo.posts.filter((post) => !post.category))
@@ -30,18 +33,25 @@ export default function FeedPage({ promptSignIn }) {
       }
       return
     }
-    const { data } = await supabase
-      .from('posts')
-      .select('*, profiles:author_id(id, display_name, role_title, avatar_url), likes(count), comments(count)')
-      .is('category', null)
-      .order('created_at', { ascending: false })
-      .limit(50)
-    setPosts(data || [])
-    if (session) {
-      const { data: likes } = await supabase.from('likes').select('post_id').eq('user_id', session.user.id)
-      setLikedSet(new Set((likes || []).map(l => l.post_id)))
-      const { data: follows } = await supabase.from('follows').select('followee_id').eq('follower_id', session.user.id)
-      setFollowingSet(new Set((follows || []).map(f => f.followee_id)))
+    try {
+      const { data, error: postsError } = await supabase
+        .from('posts')
+        .select('*, profiles:author_id(id, display_name, role_title, avatar_url), likes(count), comments(count)')
+        .is('category', null)
+        .order('created_at', { ascending: false })
+        .limit(50)
+      if (postsError) throw postsError
+      setPosts(data || [])
+      if (session) {
+        const { data: likes, error: likesError } = await supabase.from('likes').select('post_id').eq('user_id', session.user.id)
+        if (likesError) throw likesError
+        setLikedSet(new Set((likes || []).map(l => l.post_id)))
+        const { data: follows, error: followsError } = await supabase.from('follows').select('followee_id').eq('follower_id', session.user.id)
+        if (followsError) throw followsError
+        setFollowingSet(new Set((follows || []).map(f => f.followee_id)))
+      }
+    } catch (loadError) {
+      setError(getUserFacingError(loadError, 'We couldn’t load the feed right now. Please try again.'))
     }
   }
 
@@ -50,6 +60,7 @@ export default function FeedPage({ promptSignIn }) {
   async function publish(e) {
     e.preventDefault()
     if (!session) return promptSignIn()
+    setError('')
     setBusy(true)
     // Sample posts are added to shared browser memory, not saved to a server.
     if (isDemoMode) {
@@ -71,19 +82,24 @@ export default function FeedPage({ promptSignIn }) {
       setBusy(false)
       return
     }
-    const { data, error } = await supabase.from('posts')
-      .insert({ author_id: session.user.id, title: title.trim() || null, body: body.trim() })
-      .select('*, profiles:author_id(id, display_name, role_title, avatar_url), likes(count), comments(count)')
-      .single()
-    setBusy(false)
-    if (!error) {
+    try {
+      const { data, error } = await supabase.from('posts')
+        .insert({ author_id: session.user.id, title: title.trim() || null, body: body.trim() })
+        .select('*, profiles:author_id(id, display_name, role_title, avatar_url), likes(count), comments(count)')
+        .single()
+      if (error) throw error
       setPosts(p => [data, ...p])
       setTitle(''); setBody('')
+    } catch (error) {
+      setError(getUserFacingError(error, 'We couldn’t publish your post right now. Please try again.'))
+    } finally {
+      setBusy(false)
     }
   }
 
   async function toggleLike(post) {
     if (!session) return promptSignIn()
+    setError('')
     const id = post.id
     // Update the visible count and sample state together in preview mode.
     if (isDemoMode) {
@@ -103,14 +119,20 @@ export default function FeedPage({ promptSignIn }) {
       demo.setLikedPostIds((current) => liked ? current.filter((postId) => postId !== id) : [...current, id])
       return
     }
-    if (likedSet.has(id)) {
-      await supabase.from('likes').delete().eq('post_id', id).eq('user_id', session.user.id)
-      setLikedSet(s => { const n = new Set(s); n.delete(id); return n })
-      setPosts(ps => ps.map(p => p.id === id ? { ...p, likes: [{ count: Math.max(0, (p.likes?.[0]?.count || 1) - 1) }] } : p))
-    } else {
-      await supabase.from('likes').insert({ post_id: id, user_id: session.user.id })
-      setLikedSet(s => new Set(s).add(id))
-      setPosts(ps => ps.map(p => p.id === id ? { ...p, likes: [{ count: (p.likes?.[0]?.count || 0) + 1 }] } : p))
+    try {
+      if (likedSet.has(id)) {
+        const { error } = await supabase.from('likes').delete().eq('post_id', id).eq('user_id', session.user.id)
+        if (error) throw error
+        setLikedSet(s => { const n = new Set(s); n.delete(id); return n })
+        setPosts(ps => ps.map(p => p.id === id ? { ...p, likes: [{ count: Math.max(0, (p.likes?.[0]?.count || 1) - 1) }] } : p))
+      } else {
+        const { error } = await supabase.from('likes').insert({ post_id: id, user_id: session.user.id })
+        if (error) throw error
+        setLikedSet(s => new Set(s).add(id))
+        setPosts(ps => ps.map(p => p.id === id ? { ...p, likes: [{ count: (p.likes?.[0]?.count || 0) + 1 }] } : p))
+      }
+    } catch (error) {
+      setError(getUserFacingError(error, 'We couldn’t update your like right now. Please try again.'))
     }
   }
 
@@ -136,6 +158,7 @@ export default function FeedPage({ promptSignIn }) {
           <button className={'tab' + (tab === 'following' ? ' active' : '')} onClick={() => setTab('following')}>Following</button>
         </div>
       </header>
+      {error && <p className="error-text" role="alert">{error}</p>}
 
       <form className="composer" onSubmit={publish}>
         <div className="composer-top">
@@ -165,7 +188,7 @@ export default function FeedPage({ promptSignIn }) {
       </form>
 
       {/* The tabs show either every post or posts from followed people. */}
-      {shown.length === 0 && (
+      {!error && shown.length === 0 && (
         <div className="panel-empty">
           {tab === 'following'
             ? 'No posts from people you follow yet — visit the People page to build your network.'

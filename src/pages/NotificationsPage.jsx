@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { isDemoMode, supabase } from '../lib/supabase'
 import { useDemoData } from '../context/DemoContext'
 import { timeAgo } from '../lib/utils'
+import { getUserFacingError } from '../lib/errorMessages'
 import Avatar from '../components/Avatar'
 
 const LABELS = {
@@ -19,19 +20,26 @@ export default function NotificationsPage({ promptSignIn }) {
   const demo = useDemoData()
   const navigate = useNavigate()
   const [notifs, setNotifs] = useState([])
+  const [error, setError] = useState('')
 
   async function load() {
+    setError('')
     // Alerts are private to the signed-in account in the connected app.
     if (isDemoMode) {
       setNotifs(demo.notifications.filter((notification) => notification.user_id === session?.user?.id))
       return
     }
-    const { data } = await supabase
-      .from('notifications')
-      .select('*, profiles:actor_id(id, display_name, avatar_url)')
-      .order('created_at', { ascending: false })
-      .limit(50)
-    setNotifs(data || [])
+    try {
+      const { data, error: loadError } = await supabase
+        .from('notifications')
+        .select('*, profiles:actor_id(id, display_name, avatar_url)')
+        .order('created_at', { ascending: false })
+        .limit(50)
+      if (loadError) throw loadError
+      setNotifs(data || [])
+    } catch (loadError) {
+      setError(getUserFacingError(loadError, 'We couldn’t load notifications right now. Please try again.'))
+    }
   }
 
   useEffect(() => { if (session) load() }, [session])
@@ -45,7 +53,14 @@ export default function NotificationsPage({ promptSignIn }) {
       setNotifs((current) => current.map((notification) => ({ ...notification, read: true })))
       return
     }
-    await supabase.from('notifications').update({ read: true }).eq('user_id', session.user.id).eq('read', false)
+    setError('')
+    try {
+      const { error: updateError } = await supabase.from('notifications').update({ read: true }).eq('user_id', session.user.id).eq('read', false)
+      if (updateError) throw updateError
+    } catch (updateError) {
+      setError(getUserFacingError(updateError, 'We couldn’t update your notifications right now. Please try again.'))
+      return
+    }
     window.dispatchEvent(new Event('backline:notifs-read'))
     load()
   }
@@ -66,7 +81,8 @@ export default function NotificationsPage({ promptSignIn }) {
         <h1>Notifications</h1>
         {notifs.some(n => !n.read) && <button className="btn btn-ghost btn-sm" onClick={markAllRead}>Mark all read</button>}
       </header>
-      {notifs.length === 0 && <div className="panel-empty">Nothing yet — interactions will show up here.</div>}
+      {error && <p className="error-text" role="alert">{error} <button className="clear-btn" onClick={load}>Try again</button></p>}
+      {!error && notifs.length === 0 && <div className="panel-empty">Nothing yet — interactions will show up here.</div>}
       {notifs.map(n => (
         <div
           key={n.id}

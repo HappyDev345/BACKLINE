@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { isDemoMode, supabase } from '../lib/supabase'
 import { useDemoData } from '../context/DemoContext'
 import { timeAgo } from '../lib/utils'
+import { getUserFacingError } from '../lib/errorMessages'
 import Avatar from '../components/Avatar'
 
 export const CATEGORIES = [
@@ -21,11 +22,14 @@ export default function ForumPage({ promptSignIn }) {
   const [form, setForm] = useState({ title: '', body: '', category: CATEGORIES[0] })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [loadError, setLoadError] = useState('')
+  const [actionError, setActionError] = useState('')
   const [open, setOpen] = useState(null)
   const [replies, setReplies] = useState([])
   const [reply, setReply] = useState('')
 
   async function load() {
+    setLoadError('')
     // A forum thread is a post that has a category; regular feed posts do not.
     if (isDemoMode) {
       setThreads(demo.posts.filter((post) => post.category))
@@ -36,8 +40,13 @@ export default function ForumPage({ promptSignIn }) {
       .select('*, profiles:author_id(id, display_name, role_title, avatar_url), likes(count), comments(count)')
       .not('category', 'is', null)
       .order('created_at', { ascending: false })
-    const { data } = await q
-    setThreads(data || [])
+    try {
+      const { data, error: threadsError } = await q
+      if (threadsError) throw threadsError
+      setThreads(data || [])
+    } catch (threadsError) {
+      setLoadError(getUserFacingError(threadsError, 'We couldn’t load discussions right now. Please try again.'))
+    }
   }
 
   useEffect(() => { load() }, [])
@@ -68,17 +77,25 @@ export default function ForumPage({ promptSignIn }) {
       setForm({ title: '', body: '', category: CATEGORIES[0] })
       return
     }
-    const { error } = await supabase.from('posts').insert({
-      author_id: session.user.id,
-      title: form.title.trim(),
-      body: form.body.trim(),
-      category: form.category,
-    })
-    setBusy(false)
-    if (error) return setError(error.message)
-    setShowNew(false)
-    setForm({ title: '', body: '', category: CATEGORIES[0] })
-    load()
+    try {
+      const { error } = await supabase.from('posts').insert({
+        author_id: session.user.id,
+        title: form.title.trim(),
+        body: form.body.trim(),
+        category: form.category,
+      })
+      if (error) {
+        setError(getUserFacingError(error, 'We couldn’t post this discussion right now. Please try again.'))
+        return
+      }
+      setShowNew(false)
+      setForm({ title: '', body: '', category: CATEGORIES[0] })
+      load()
+    } catch (postError) {
+      setError(getUserFacingError(postError, 'We couldn’t post this discussion right now. Please try again.'))
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function openThread(t) {
@@ -89,17 +106,26 @@ export default function ForumPage({ promptSignIn }) {
       setReply('')
       return
     }
-    const { data } = await supabase
-      .from('comments').select('*, profiles:author_id(id, display_name, avatar_url)')
-      .eq('post_id', t.id).order('created_at', { ascending: true })
-    setReplies(data || [])
-    setReply('')
+    try {
+      const { data, error } = await supabase
+        .from('comments').select('*, profiles:author_id(id, display_name, avatar_url)')
+        .eq('post_id', t.id).order('created_at', { ascending: true })
+      if (error) throw error
+      setReplies(data || [])
+      setReply('')
+      setActionError('')
+    } catch (error) {
+      setReplies([])
+      setActionError(getUserFacingError(error, 'We couldn’t load replies right now. Please try again.'))
+      setReply('')
+    }
   }
 
   async function submitReply(e) {
     e.preventDefault()
     if (!session) return promptSignIn()
     if (!reply.trim()) return
+    setActionError('')
     if (isDemoMode) {
       const comment = {
         id: 'demo-reply-' + Date.now(),
@@ -120,13 +146,18 @@ export default function ForumPage({ promptSignIn }) {
         : thread))
       return
     }
-    const { data, error } = await supabase.from('comments')
-      .insert({ post_id: open.id, author_id: session.user.id, body: reply.trim() })
-      .select('*, profiles:author_id(id, display_name, avatar_url)').single()
-    if (!error) {
-      setReplies(r => [...r, data])
-      setReply('')
-      load()
+    try {
+      const { data, error } = await supabase.from('comments')
+        .insert({ post_id: open.id, author_id: session.user.id, body: reply.trim() })
+        .select('*, profiles:author_id(id, display_name, avatar_url)').single()
+      if (error) throw error
+      if (data) {
+        setReplies(r => [...r, data])
+        setReply('')
+        load()
+      }
+    } catch (error) {
+      setActionError(getUserFacingError(error, 'We couldn’t post your reply right now. Please try again.'))
     }
   }
 
@@ -137,6 +168,7 @@ export default function ForumPage({ promptSignIn }) {
         <button className="btn" onClick={() => session ? setShowNew(true) : promptSignIn()}>+ New thread</button>
       </header>
       <p className="muted">Technical discussions, equipment advice and industry knowledge from the community.</p>
+      {loadError && <p className="error-text" role="alert">{loadError} <button className="clear-btn" onClick={load}>Try again</button></p>}
 
       <div className="forum-cats">
         {/* Choosing a category filters the thread list below. */}
@@ -147,7 +179,7 @@ export default function ForumPage({ promptSignIn }) {
       </div>
 
       {/* Selecting a thread opens its full text and replies in a window. */}
-      {shown.length === 0 && <div className="panel-empty">No threads here yet — start one!</div>}
+      {!loadError && shown.length === 0 && <div className="panel-empty">No threads here yet — start one!</div>}
       {shown.map(t => (
         <div
           className="thread-item"
@@ -195,7 +227,7 @@ export default function ForumPage({ promptSignIn }) {
                 <label htmlFor="ft-body">Details</label>
                 <textarea id="ft-body" className="input" rows={5} value={form.body} onChange={e => setForm({ ...form, body: e.target.value })} required />
               </div>
-              {error && <p className="error-text">{error}</p>}
+              {error && <p className="error-text" role="alert">{error}</p>}
               <div className="modal-actions">
                 <button className="btn" type="submit" disabled={busy}>{busy ? 'Posting…' : 'Post thread'}</button>
                 <button className="btn btn-ghost" type="button" onClick={() => setShowNew(false)}>Cancel</button>
@@ -211,6 +243,7 @@ export default function ForumPage({ promptSignIn }) {
             <button className="modal-close" onClick={() => setOpen(null)} aria-label="Close">&#10005;</button>
             <span className="badge badge-type">{open.category}</span>
             <h2>{open.title}</h2>
+            {actionError && <p className="error-text" role="alert">{actionError}</p>}
             <div className="post-head" style={{ marginBottom: 14 }}>
               <Avatar profile={open.profiles} />
               <div>

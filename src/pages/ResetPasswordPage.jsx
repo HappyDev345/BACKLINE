@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { isDemoMode, supabase } from '../lib/supabase'
+import { getUserFacingError } from '../lib/errorMessages'
 
 export default function ResetPasswordPage() {
   const { session, loading } = useAuth()
@@ -24,7 +25,7 @@ export default function ResetPasswordPage() {
       if (updateError) throw updateError
       setSuccess(true)
     } catch (err) {
-      setError(err.message)
+      setError(getUserFacingError(err, 'We couldn’t update your password right now. Please try again.'))
     } finally {
       setBusy(false)
     }

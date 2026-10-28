@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { isDemoMode, supabase } from '../lib/supabase'
 import { useDemoData } from '../context/DemoContext'
+import { getUserFacingError } from '../lib/errorMessages'
 import ProjectCard from '../components/ProjectCard'
 import ProjectModal from '../components/ProjectModal'
 
@@ -29,22 +30,31 @@ export default function DiscoverPage({ promptSignIn }) {
   const [form, setForm] = useState(emptyForm)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [loadError, setLoadError] = useState('')
+  const [actionError, setActionError] = useState('')
 
   async function load() {
+    setLoadError('')
     // Build the project list and saved markers from either sample or online data.
     if (isDemoMode) {
       setProjects(demo.projects)
       setSavedSet(new Set(demo.savedProjects.filter((item) => item.user_id === session?.user?.id).map((item) => item.project_id)))
       return
     }
-    const { data } = await supabase
-      .from('projects')
-      .select('*, profiles:creator_id(id, display_name, role_title, avatar_url, location)')
-      .order('created_at', { ascending: false })
-    setProjects(data || [])
-    if (session) {
-      const { data: saved } = await supabase.from('saved_projects').select('project_id').eq('user_id', session.user.id)
-      setSavedSet(new Set((saved || []).map(r => r.project_id)))
+    try {
+      const { data, error: projectsError } = await supabase
+        .from('projects')
+        .select('*, profiles:creator_id(id, display_name, role_title, avatar_url, location)')
+        .order('created_at', { ascending: false })
+      if (projectsError) throw projectsError
+      setProjects(data || [])
+      if (session) {
+        const { data: saved, error: savedError } = await supabase.from('saved_projects').select('project_id').eq('user_id', session.user.id)
+        if (savedError) throw savedError
+        setSavedSet(new Set((saved || []).map(r => r.project_id)))
+      }
+    } catch (loadError) {
+      setLoadError(getUserFacingError(loadError, 'We couldn’t load projects right now. Please try again.'))
     }
   }
 
@@ -74,6 +84,7 @@ export default function DiscoverPage({ promptSignIn }) {
 
   async function toggleSave(id) {
     if (!session) return promptSignIn()
+    setActionError('')
     // In preview, update only this browser's temporary sample list.
     if (isDemoMode) {
       const isSaved = savedSet.has(id)
@@ -88,12 +99,18 @@ export default function DiscoverPage({ promptSignIn }) {
         : [...current, { user_id: session.user.id, project_id: id }])
       return
     }
-    if (savedSet.has(id)) {
-      await supabase.from('saved_projects').delete().eq('project_id', id).eq('user_id', session.user.id)
-      setSavedSet(s => { const n = new Set(s); n.delete(id); return n })
-    } else {
-      await supabase.from('saved_projects').insert({ project_id: id, user_id: session.user.id })
-      setSavedSet(s => new Set(s).add(id))
+    try {
+      if (savedSet.has(id)) {
+        const { error: saveError } = await supabase.from('saved_projects').delete().eq('project_id', id).eq('user_id', session.user.id)
+        if (saveError) throw saveError
+        setSavedSet(s => { const n = new Set(s); n.delete(id); return n })
+      } else {
+        const { error: saveError } = await supabase.from('saved_projects').insert({ project_id: id, user_id: session.user.id })
+        if (saveError) throw saveError
+        setSavedSet(s => new Set(s).add(id))
+      }
+    } catch (saveError) {
+      setActionError(getUserFacingError(saveError, 'We couldn’t update your saved projects. Please try again.'))
     }
   }
 
@@ -128,23 +145,31 @@ export default function DiscoverPage({ promptSignIn }) {
       setBusy(false)
       return
     }
-    const { error } = await supabase.from('projects').insert({
-      creator_id: session.user.id,
-      title: form.title.trim(),
-      type: form.type,
-      location: form.location.trim(),
-      event_date: form.event_date || null,
-      compensation: form.compensation,
-      spots: parseInt(form.spots) || 1,
-      roles: split(form.roles),
-      tags: split(form.tags),
-      description: form.description.trim(),
-    })
-    setBusy(false)
-    if (error) return setError(error.message)
-    setShowNew(false)
-    setForm(emptyForm)
-    load()
+    try {
+      const { error } = await supabase.from('projects').insert({
+        creator_id: session.user.id,
+        title: form.title.trim(),
+        type: form.type,
+        location: form.location.trim(),
+        event_date: form.event_date || null,
+        compensation: form.compensation,
+        spots: parseInt(form.spots) || 1,
+        roles: split(form.roles),
+        tags: split(form.tags),
+        description: form.description.trim(),
+      })
+      if (error) {
+        setError(getUserFacingError(error, 'We couldn’t publish this project right now. Please try again.'))
+        return
+      }
+      setShowNew(false)
+      setForm(emptyForm)
+      load()
+    } catch (publishError) {
+      setError(getUserFacingError(publishError, 'We couldn’t publish this project right now. Please try again.'))
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -155,6 +180,8 @@ export default function DiscoverPage({ promptSignIn }) {
       </header>
 
       <div className="page" style={{ paddingTop: 24 }}>
+        {loadError && <p className="error-text" role="alert">{loadError} <button className="clear-btn" onClick={load}>Try again</button></p>}
+        {actionError && <p className="error-text" role="alert">{actionError}</p>}
         {/* Search and dropdowns narrow the project cards below. */}
         <section className="toolbar" aria-label="Search and filters">
           <div className="row-between">
@@ -187,14 +214,14 @@ export default function DiscoverPage({ promptSignIn }) {
           </div>
         </section>
 
-        <p className="results-line" role="status">
+        {!loadError && <p className="results-line" role="status">
           {filtered.length} project{filtered.length !== 1 ? 's' : ''} found
           {session && savedSet.size > 0 ? ' · ' + savedSet.size + ' saved' : ''}
-        </p>
+        </p>}
 
         {/* These cards open the project details window when selected. */}
         <main className="grid">
-          {filtered.length === 0 && (
+          {!loadError && filtered.length === 0 && (
             <div className="empty">
               <h3>No projects match those filters</h3>
               <p>Try broadening your search, or publish the project you are looking for.</p>
@@ -260,7 +287,7 @@ export default function DiscoverPage({ promptSignIn }) {
                 <label htmlFor="np-tags">Tags (comma separated)</label>
                 <input id="np-tags" className="input" value={form.tags} onChange={setField('tags')} placeholder="Festival, Night shoot" />
               </div>
-              {error && <p className="error-text">{error}</p>}
+              {error && <p className="error-text" role="alert">{error}</p>}
               <div className="modal-actions">
                 <button className="btn" type="submit" disabled={busy}>{busy ? 'Publishing…' : 'Publish project'}</button>
                 <button className="btn btn-ghost" type="button" onClick={() => setShowNew(false)}>Cancel</button>
