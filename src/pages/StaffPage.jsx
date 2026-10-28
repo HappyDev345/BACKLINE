@@ -10,6 +10,13 @@ const STAFF_ROLES = [
   ['admin', 'Admin'],
 ]
 
+function isAccountSuspended(account) {
+  const restrictions = Array.isArray(account.account_restrictions)
+    ? account.account_restrictions
+    : account.account_restrictions ? [account.account_restrictions] : []
+  return restrictions.some((restriction) => restriction.suspended)
+}
+
 function ReportCase({ report, roles, onResolved }) {
   const { session } = useAuth()
   const [target, setTarget] = useState(null)
@@ -300,7 +307,7 @@ export default function StaffPage() {
   }
 
   function setSuspended(account) {
-    const suspended = account.account_restrictions?.some((restriction) => restriction.suspended)
+    const suspended = isAccountSuspended(account)
     const reason = window.prompt(suspended ? 'Reason for reinstating this account:' : 'Reason for suspending this account:')
     if (!reason?.trim()) return
     accountAction('admin_set_account_suspended', {
@@ -365,7 +372,7 @@ export default function StaffPage() {
             <input id="staff-account-search" className="input" value={accountQuery} onChange={(event) => setAccountQuery(event.target.value)} />
           </div>
           {accounts.map((account) => {
-            const suspended = account.account_restrictions?.some((restriction) => restriction.suspended)
+            const suspended = isAccountSuspended(account)
             const verified = account.profile_badges?.some((badge) => badge.badge === 'verified')
             return (
               <article className="staff-card staff-account" key={account.id}>
