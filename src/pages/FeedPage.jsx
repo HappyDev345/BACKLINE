@@ -36,7 +36,7 @@ export default function FeedPage({ promptSignIn }) {
     try {
       const { data, error: postsError } = await supabase
         .from('posts')
-        .select('*, profiles:author_id(id, display_name, role_title, avatar_url), likes(count), comments(count)')
+        .select('*, profiles:author_id(id, display_name, role_title, avatar_url, staff_roles(role), profile_badges(badge)), likes(count), comments(count)')
         .is('category', null)
         .order('created_at', { ascending: false })
         .limit(50)
@@ -85,7 +85,7 @@ export default function FeedPage({ promptSignIn }) {
     try {
       const { data, error } = await supabase.from('posts')
         .insert({ author_id: session.user.id, title: title.trim() || null, body: body.trim() })
-        .select('*, profiles:author_id(id, display_name, role_title, avatar_url), likes(count), comments(count)')
+        .select('*, profiles:author_id(id, display_name, role_title, avatar_url, staff_roles(role), profile_badges(badge)), likes(count), comments(count)')
         .single()
       if (error) throw error
       setPosts(p => [data, ...p])

@@ -7,6 +7,7 @@ import { useDemoData } from '../context/DemoContext'
 import { findOrCreateConversation } from '../lib/conversations'
 import { getUserFacingError } from '../lib/errorMessages'
 import Avatar from '../components/Avatar'
+import ProfileBadges from '../components/ProfileBadges'
 
 export default function PeoplePage({ promptSignIn }) {
   const { session } = useAuth()
@@ -27,7 +28,9 @@ export default function PeoplePage({ promptSignIn }) {
       return
     }
     try {
-      const { data, error: peopleError } = await supabase.from('profiles').select('*').order('created_at', { ascending: false }).limit(100)
+      const { data, error: peopleError } = await supabase.from('profiles')
+        .select('*, staff_roles(role), profile_badges(badge)')
+        .order('created_at', { ascending: false }).limit(100)
       if (peopleError) throw peopleError
       setPeople(data || [])
       if (session) {
@@ -133,6 +136,7 @@ export default function PeoplePage({ promptSignIn }) {
             <Link to={'/profile/' + p.id} style={{ textDecoration: 'none' }}>
               <div className="name">{p.display_name || 'Unnamed user'}</div>
             </Link>
+            <ProfileBadges profile={p} />
             <div className="sub">
               {p.role_title && p.role_title + ' · '}{p.location || 'Location not set'}
               {p.username ? ' · @' + p.username : ''}

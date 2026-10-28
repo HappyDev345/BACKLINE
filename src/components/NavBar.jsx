@@ -6,10 +6,11 @@ import { isDemoMode, supabase } from '../lib/supabase'
 import { useDemoData } from '../context/DemoContext'
 import { getUserFacingError } from '../lib/errorMessages'
 import Avatar from './Avatar'
+import ProfileBadges from './ProfileBadges'
 import logo from '../../BackLine-logo.png'
 
 export default function NavBar({ onSignIn }) {
-  const { session, profile, loading, signOut } = useAuth()
+  const { session, profile, staffRoles, loading, signOut } = useAuth()
   const demo = useDemoData()
   const [unread, setUnread] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -79,6 +80,8 @@ export default function NavBar({ onSignIn }) {
               <NavLink to="/people" onClick={() => setMenuOpen(false)}>People</NavLink>
               <NavLink to="/forum" onClick={() => setMenuOpen(false)}>Forum</NavLink>
               <NavLink to="/messages" onClick={() => setMenuOpen(false)}>Messages</NavLink>
+              <NavLink to="/my-reports" onClick={() => setMenuOpen(false)}>My reports</NavLink>
+              {staffRoles.length > 0 && <NavLink to="/staff" onClick={() => setMenuOpen(false)}>Staff</NavLink>}
               <NavLink
                 to="/notifications"
                 className={({ isActive }) => 'bell-wrap' + (isActive ? ' active' : '')}
@@ -100,6 +103,7 @@ export default function NavBar({ onSignIn }) {
           {session ? (
             <div className="nav-user">
               {profile && <NavLink to={'/profile/' + profile.id} onClick={() => setMenuOpen(false)}><Avatar profile={profile} /></NavLink>}
+              <ProfileBadges profile={{ staff_roles: staffRoles }} />
               <NavLink className="btn btn-ghost btn-sm" to="/settings" onClick={() => setMenuOpen(false)}>Settings</NavLink>
               <button className="btn btn-ghost btn-sm" onClick={handleSignOut}>Sign out</button>
               {signOutError && <span className="error-text" role="alert">{signOutError}</span>}

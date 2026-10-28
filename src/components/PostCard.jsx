@@ -7,6 +7,8 @@ import { useDemoData } from '../context/DemoContext'
 import { timeAgo } from '../lib/utils'
 import { getUserFacingError } from '../lib/errorMessages'
 import Avatar from './Avatar'
+import ReportButton from './ReportButton'
+import ProfileBadges from './ProfileBadges'
 
 export default function PostCard({ post, liked, onLike, promptSignIn }) {
   const { session, profile } = useAuth()
@@ -33,7 +35,7 @@ export default function PostCard({ post, liked, onLike, promptSignIn }) {
       }
       try {
         const { data, error: commentsError } = await supabase
-          .from('comments').select('*, profiles:author_id(id, display_name, avatar_url)')
+          .from('comments').select('*, profiles:author_id(id, display_name, avatar_url, staff_roles(role), profile_badges(badge))')
           .eq('post_id', post.id).order('created_at', { ascending: true })
         if (commentsError) throw commentsError
         setComments(data || [])
@@ -73,7 +75,7 @@ export default function PostCard({ post, liked, onLike, promptSignIn }) {
     try {
       const { data, error } = await supabase.from('comments')
         .insert({ post_id: post.id, author_id: session.user.id, body: body.trim() })
-        .select('*, profiles:author_id(id, display_name, avatar_url)').single()
+        .select('*, profiles:author_id(id, display_name, avatar_url, staff_roles(role), profile_badges(badge))').single()
       if (error) throw error
       if (data) {
         setComments(c => [...c, data])
@@ -91,6 +93,7 @@ export default function PostCard({ post, liked, onLike, promptSignIn }) {
         <Link to={'/profile/' + author.id}><Avatar profile={author} /></Link>
         <div>
           <Link to={'/profile/' + author.id} style={{ textDecoration: 'none' }}><div className="who">{author.display_name || 'Unknown'}</div></Link>
+          <ProfileBadges profile={author} />
           <div className="sub">{author.role_title ? author.role_title + ' · ' : ''}{timeAgo(post.created_at)}</div>
         </div>
       </div>
@@ -103,6 +106,7 @@ export default function PostCard({ post, liked, onLike, promptSignIn }) {
         <button className="action-btn" onClick={toggleComments}>
           &#128172; Comments ({count})
         </button>
+        <ReportButton targetType="post" targetId={post.id} ownerId={post.author_id} promptSignIn={promptSignIn} />
       </div>
       {expanded && (
         <div className="comments">
@@ -112,8 +116,10 @@ export default function PostCard({ post, liked, onLike, promptSignIn }) {
               <Avatar profile={c.profiles} />
               <div>
                 <div className="who">{c.profiles?.display_name || 'Unknown'}</div>
+                <ProfileBadges profile={c.profiles} />
                 <div className="txt">{c.body}</div>
               </div>
+              <ReportButton targetType="comment" targetId={c.id} ownerId={c.author_id} promptSignIn={promptSignIn} />
             </div>
           ))}
           {comments.length === 0 && <p className="muted" style={{ padding: '8px 0' }}>No comments yet — start the discussion.</p>}

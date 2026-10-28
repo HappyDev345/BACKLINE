@@ -6,6 +6,8 @@ import { useDemoData } from '../context/DemoContext'
 import { findOrCreateConversation } from '../lib/conversations'
 import { getUserFacingError } from '../lib/errorMessages'
 import Avatar from './Avatar'
+import ReportButton from './ReportButton'
+import ProfileBadges from './ProfileBadges'
 
 export default function ProjectModal({ p, onClose, promptSignIn }) {
   const { session, profile } = useAuth()
@@ -90,11 +92,13 @@ export default function ProjectModal({ p, onClose, promptSignIn }) {
             <Avatar profile={creator} />
             <div>
               <div className="name">{creator.display_name || 'Unknown'}</div>
+              <ProfileBadges profile={creator} />
               <div className="sub">{creator.role_title || 'Creator'}{creator.location ? ' · ' + creator.location : ''}</div>
             </div>
           </div>
         </div>
         {error && <p className="error-text" role="alert">{error}</p>}
+        <ReportButton targetType="project" targetId={p.id} ownerId={p.creator_id} promptSignIn={promptSignIn} />
         <div className="modal-actions">
           <button className="btn" onClick={expressInterest} disabled={busy || interestSent || creator.id === session?.user?.id}>
             {interestSent ? 'Interest sent \u2713' : creator.id === session?.user?.id ? 'Your project' : 'Express interest'}

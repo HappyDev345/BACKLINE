@@ -38,7 +38,9 @@ npm run build
 To run the connected app:
 
 1. Create a separate Supabase project for development or preview testing.
-2. Run `supabase/schema.sql` in that project's SQL Editor.
+2. Run `supabase/schema.sql`, then apply each file in `supabase/migrations/` in
+   timestamp order in that project's SQL Editor. For an existing project, run
+   only migrations that have not already been applied.
 3. Create a local `.env` file with the project's URL and public anon key:
 
    ```env
@@ -59,6 +61,69 @@ content throughout the app.
 Never put a Supabase service-role key in the frontend or commit credentials.
 Use a separate project and environment variables for preview deployments so
 test data cannot affect production.
+
+### Staff roles, reports, and moderation
+
+The roles/reporting migration adds the private staff workspace, account
+management, verification badges, user reports, content moderation, and the
+staff action history. After applying it, create the first admin from the
+Supabase SQL Editor using an account that has already signed up. Replace the
+email below with the trusted operator's exact account email:
+
+```sql
+insert into public.staff_roles (user_id, role)
+select id, 'admin'
+from auth.users
+where email = 'admin@example.com'
+on conflict (user_id, role) do nothing;
+```
+
+Only admins can grant or revoke further staff roles. Feed/forum moderators can
+review and moderate posts, threads, and comments; project moderators can
+moderate projects. Account suspension, staff appointments, and verified badges
+are admin-only. User reports are private to the reporter and authorized staff;
+the reporting RPC limits submissions and the staff workspace records
+moderation actions and private case notes.
+
+Suspension blocks new community content, likes/follows/saves, reports, profile
+edits, and new conversations/messages while leaving public read access intact;
+suspending a moderator also revokes their staff roles, which must be
+re-granted separately after reinstatement.
+
+For the first release, define **Verified** as an admin-reviewed indication
+that a person or organization demonstrates real involvement in AV/live
+production (for example, through a public portfolio, production credits, or an
+official company/venue page). It is not an endorsement, qualification, or
+identity guarantee. Do not collect identity documents or sensitive evidence.
+Admins must record a brief reason; publish how to request review and appeal
+before enabling badges broadly. The current UI provides the admin grant/revoke
+control, not a user application or appeal workflow.
+
+The migration also replaces self-service conversation membership with an
+atomic database operation, preventing users from adding themselves to
+arbitrary existing conversations. Legacy conversations are preserved but
+inaccessible while their `created_by` field is null. Review their memberships
+in the development project before restoring access by setting a trusted
+creator; do not make old conversations visible before checking every member.
+
+Before production, verify these cases in a separate Supabase project:
+
+- Ordinary users cannot grant roles, change badges, write moderation actions,
+  directly create/edit reports, or read another user's reports or staff notes.
+- Feed/forum moderators can review and moderate posts, threads, and comments,
+  but cannot review account reports, change roles, grant verification, or
+  suspend accounts. Project moderators can act only on project reports.
+- Admins can manage roles, badges, and account standing; the last admin cannot
+  remove their own admin role. Admins cannot suspend themselves; another
+  admin's role must be revoked before that account can be suspended.
+- A resolved hide/remove action removes content from ordinary reads while
+  authorized staff retain access; restore clears the hidden state. Every staff
+  decision appears in the action history.
+- Suspended accounts cannot publish, interact, report, edit profiles, or start
+  conversations; reinstatement does not automatically restore staff roles.
+- Direct membership writes cannot add someone to an existing conversation;
+  the RPC creates exactly the caller and intended recipient. Legacy
+  conversations remain unreadable until their membership is audited.
 
 ### Account settings and deletion
 

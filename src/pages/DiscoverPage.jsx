@@ -44,7 +44,7 @@ export default function DiscoverPage({ promptSignIn }) {
     try {
       const { data, error: projectsError } = await supabase
         .from('projects')
-        .select('*, profiles:creator_id(id, display_name, role_title, avatar_url, location)')
+        .select('*, profiles:creator_id(id, display_name, role_title, avatar_url, location, staff_roles(role), profile_badges(badge))')
         .order('created_at', { ascending: false })
       if (projectsError) throw projectsError
       setProjects(data || [])
@@ -229,7 +229,7 @@ export default function DiscoverPage({ promptSignIn }) {
             </div>
           )}
           {filtered.map(p => (
-            <ProjectCard key={p.id} p={p} saved={savedSet.has(p.id)} onToggleSave={toggleSave} onOpen={setOpen} />
+            <ProjectCard key={p.id} p={p} saved={savedSet.has(p.id)} onToggleSave={toggleSave} onOpen={setOpen} promptSignIn={promptSignIn} />
           ))}
         </main>
       </div>

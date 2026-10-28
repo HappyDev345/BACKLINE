@@ -1,7 +1,9 @@
 // Compact summary of a project; opening it reveals more information.
 import Avatar from './Avatar'
+import ReportButton from './ReportButton'
+import ProfileBadges from './ProfileBadges'
 
-export default function ProjectCard({ p, saved, onToggleSave, onOpen }) {
+export default function ProjectCard({ p, saved, onToggleSave, onOpen, promptSignIn }) {
   const creator = p.profiles || {}
   return (
     <article className="card">
@@ -34,10 +36,12 @@ export default function ProjectCard({ p, saved, onToggleSave, onOpen }) {
           <Avatar profile={creator} />
           <div>
             <div className="name">{creator.display_name || 'Unknown'}</div>
+            <ProfileBadges profile={creator} />
             <div className="role">{creator.role_title || 'Creator'}</div>
           </div>
         </div>
       </button>
+      <ReportButton targetType="project" targetId={p.id} ownerId={p.creator_id} promptSignIn={promptSignIn} />
     </article>
   )
 }

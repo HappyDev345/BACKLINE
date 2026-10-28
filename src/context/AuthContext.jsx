@@ -12,17 +12,29 @@ export function AuthProvider({ children }) {
   const demo = useDemoData()
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
+  const [staffRoles, setStaffRoles] = useState([])
+  const [staffRoleError, setStaffRoleError] = useState('')
   const [loading, setLoading] = useState(true)
 
   async function fetchProfile(id) {
     // Preview profiles come from the sample data held in the browser.
     if (isDemoMode) {
       setProfile(demo.profiles.find((person) => person.id === id) || null)
+      setStaffRoles([])
+      setStaffRoleError('')
       setLoading(false)
       return
     }
     const { data } = await supabase.from('profiles').select('*').eq('id', id).single()
+    const { data: roles, error } = await supabase.from('staff_roles').select('role').eq('user_id', id)
     setProfile(data)
+    if (error) {
+      setStaffRoles([])
+      setStaffRoleError('Staff permissions could not be loaded. Please contact an administrator.')
+    } else {
+      setStaffRoles((roles || []).map((row) => row.role))
+      setStaffRoleError('')
+    }
     setLoading(false)
   }
 
@@ -40,7 +52,7 @@ export function AuthProvider({ children }) {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s)
       if (s) fetchProfile(s.user.id)
-      else { setProfile(null); setLoading(false) }
+      else { setProfile(null); setStaffRoles([]); setStaffRoleError(''); setLoading(false) }
     })
     return () => sub.subscription.unsubscribe()
   }, [])
@@ -55,6 +67,7 @@ export function AuthProvider({ children }) {
         username: username || demoProfiles[0].username,
       }
       setSession(demoSession)
+      setStaffRoles([])
       demo.setProfiles((current) => current.map((profile) => profile.id === 'demo-user' ? person : profile))
       setProfile(person)
       return
@@ -70,6 +83,7 @@ export function AuthProvider({ children }) {
   async function signIn(email, password) {
     if (isDemoMode) {
       setSession({ user: { id: 'demo-user', email } })
+      setStaffRoles([])
       setProfile(demo.profiles.find((person) => person.id === 'demo-user') || demoProfiles[0])
       return
     }
@@ -81,6 +95,7 @@ export function AuthProvider({ children }) {
     if (!isDemoMode) throw new Error('Sample user sign-in is only available in preview mode.')
     const person = demo.profiles.find((profile) => profile.id === 'demo-user') || demoProfiles[0]
     setSession({ user: { id: person.id } })
+    setStaffRoles([])
     setProfile(person)
   }
 
@@ -88,6 +103,7 @@ export function AuthProvider({ children }) {
     if (isDemoMode) {
       setSession(null)
       setProfile(null)
+      setStaffRoles([])
       return
     }
     const { error } = await supabase.auth.signOut(options)
@@ -103,7 +119,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthCtx.Provider value={{ session, profile, loading, signUp, signIn, signInAsDemoUser, signOut, refreshProfile, updateDemoProfile }}>
+    <AuthCtx.Provider value={{ session, profile, staffRoles, staffRoleError, loading, signUp, signIn, signInAsDemoUser, signOut, refreshProfile, updateDemoProfile }}>
       {children}
     </AuthCtx.Provider>
   )

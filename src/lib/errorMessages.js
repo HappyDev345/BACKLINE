@@ -15,6 +15,9 @@ export function getUserFacingError(error, fallback) {
   if (code === 'user_already_exists' || message.includes('user already registered')) {
     return 'An account may already exist for this email. Try signing in or resetting your password.'
   }
+  if (code === '23505' && message.includes('reports_one_open_per_reporter_target')) {
+    return 'You already have an open report for this item.'
+  }
   if (error instanceof TypeError || message.includes('failed to fetch') || message.includes('network')) {
     return 'We couldn’t connect right now. Check your connection and try again.'
   }

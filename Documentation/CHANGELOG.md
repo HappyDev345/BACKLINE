@@ -3,6 +3,17 @@
 Notable changes to BACKLINE are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [1.2.0] - 2026-10-28
+
+- Added admin, feed/forum moderator, and project moderator roles, plus
+  admin-managed verified badges and account restrictions.
+- Added private reports for accounts, projects, posts, forum threads, and
+  comments, with a staff review queue, case notes, content moderation, and
+  action history.
+- Added `/my-reports` and the role-gated `/staff` workspace.
+- Secured conversation membership through an atomic server-side operation;
+  legacy conversations require an access review before being restored.
+
 ## [1.1.1] - 2026-10-28
 
 - Fixed profile follow counts and follow-state checks to use the follows

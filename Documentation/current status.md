@@ -20,6 +20,8 @@ The main routes are:
 - `/forum` — discussions and replies
 - `/messages` — private conversations
 - `/notifications` — activity alerts
+- `/my-reports` — status of reports submitted by the signed-in user
+- `/staff` — role-gated staff report queue, case notes, action history, and admin account tools
 
 Unknown routes show a friendly not-found message.
 
@@ -51,9 +53,9 @@ being presented as successful empty results.
 
 ## What’s behind the connected mode
 
-`supabase/schema.sql` defines profiles, projects, posts and comments, follows and likes, saved projects, conversations and messages, and notifications. It also sets row-level security policies, profile and notification triggers, and a public `media` storage bucket.
+`supabase/schema.sql` defines profiles, projects, posts and comments, follows and likes, saved projects, conversations and messages, and notifications. It also sets row-level security policies, profile and notification triggers, and a public `media` storage bucket. The timestamped migrations add protected admin/feed-moderator/project-moderator roles, verified badges, private reports, moderation actions and staff notes, and the staff workspace.
 
-Some backend pieces are groundwork rather than finished product features: `project_members` is defined but not used by the UI; post media is represented in the schema but there’s no post-upload flow; and Realtime is used for open chats and the notification count, not as a general live-update mechanism. The schema also documents a simplified conversation-membership policy that would need tightening before a production launch.
+Some backend pieces are groundwork rather than finished product features: `project_members` is defined but not used by the UI; post media is represented in the schema but there’s no post-upload flow; and Realtime is used for open chats and the notification count, not as a general live-update mechanism. New conversations use a server-side membership operation. Legacy conversations remain inaccessible until an operator audits their participants and sets a trusted creator. Verification criteria and an appeals process still need to be established before granting badges at scale.
 
 ## Running it
 

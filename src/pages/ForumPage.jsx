@@ -6,6 +6,8 @@ import { useDemoData } from '../context/DemoContext'
 import { timeAgo } from '../lib/utils'
 import { getUserFacingError } from '../lib/errorMessages'
 import Avatar from '../components/Avatar'
+import ReportButton from '../components/ReportButton'
+import ProfileBadges from '../components/ProfileBadges'
 
 export const CATEGORIES = [
   // These labels are used by both the category filters and the new-thread form.
@@ -37,7 +39,7 @@ export default function ForumPage({ promptSignIn }) {
     }
     let q = supabase
       .from('posts')
-      .select('*, profiles:author_id(id, display_name, role_title, avatar_url), likes(count), comments(count)')
+      .select('*, profiles:author_id(id, display_name, role_title, avatar_url, staff_roles(role), profile_badges(badge)), likes(count), comments(count)')
       .not('category', 'is', null)
       .order('created_at', { ascending: false })
     try {
@@ -108,7 +110,7 @@ export default function ForumPage({ promptSignIn }) {
     }
     try {
       const { data, error } = await supabase
-        .from('comments').select('*, profiles:author_id(id, display_name, avatar_url)')
+        .from('comments').select('*, profiles:author_id(id, display_name, avatar_url, staff_roles(role), profile_badges(badge))')
         .eq('post_id', t.id).order('created_at', { ascending: true })
       if (error) throw error
       setReplies(data || [])
@@ -149,7 +151,7 @@ export default function ForumPage({ promptSignIn }) {
     try {
       const { data, error } = await supabase.from('comments')
         .insert({ post_id: open.id, author_id: session.user.id, body: reply.trim() })
-        .select('*, profiles:author_id(id, display_name, avatar_url)').single()
+        .select('*, profiles:author_id(id, display_name, avatar_url, staff_roles(role), profile_badges(badge))').single()
       if (error) throw error
       if (data) {
         setReplies(r => [...r, data])
@@ -181,29 +183,33 @@ export default function ForumPage({ promptSignIn }) {
       {/* Selecting a thread opens its full text and replies in a window. */}
       {!loadError && shown.length === 0 && <div className="panel-empty">No threads here yet — start one!</div>}
       {shown.map(t => (
-        <div
-          className="thread-item"
-          key={t.id}
-          role="button"
-          tabIndex={0}
-          onClick={() => openThread(t)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault()
-              openThread(t)
-            }
-          }}
-        >
-          <div className="row-between">
-            <h3>{t.title}</h3>
-            <span className="badge badge-type">{t.category}</span>
+        <div key={t.id}>
+          <div
+            className="thread-item"
+            role="button"
+            tabIndex={0}
+            onClick={() => openThread(t)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                openThread(t)
+              }
+            }}
+          >
+            <div className="row-between">
+              <h3>{t.title}</h3>
+              <span className="badge badge-type">{t.category}</span>
+            </div>
+            <p className="muted" style={{ fontSize: '0.9rem', lineHeight: 1.55 }}>
+              {(t.body || '').slice(0, 140)}{(t.body || '').length > 140 ? '…' : ''}
+            </p>
+            <p className="muted" style={{ fontSize: '0.8rem', marginTop: 8 }}>
+              {t.profiles?.display_name || 'Unknown'} · {timeAgo(t.created_at)} · {t.comments?.[0]?.count || 0} replies
+            </p>
           </div>
-          <p className="muted" style={{ fontSize: '0.9rem', lineHeight: 1.55 }}>
-            {(t.body || '').slice(0, 140)}{(t.body || '').length > 140 ? '…' : ''}
-          </p>
-          <p className="muted" style={{ fontSize: '0.8rem', marginTop: 8 }}>
-            {t.profiles?.display_name || 'Unknown'} · {timeAgo(t.created_at)} · {t.comments?.[0]?.count || 0} replies
-          </p>
+          <div className="thread-report">
+            <ReportButton targetType="post" targetId={t.id} ownerId={t.author_id} promptSignIn={promptSignIn} />
+          </div>
         </div>
       ))}
 
@@ -248,9 +254,11 @@ export default function ForumPage({ promptSignIn }) {
               <Avatar profile={open.profiles} />
               <div>
                 <div className="who">{open.profiles?.display_name || 'Unknown'}</div>
+                <ProfileBadges profile={open.profiles} />
                 <div className="sub">{timeAgo(open.created_at)}</div>
               </div>
             </div>
+            <ReportButton targetType="post" targetId={open.id} ownerId={open.author_id} promptSignIn={promptSignIn} />
             <p className="post-body">{open.body}</p>
             <div className="modal-section">
               <h4>{replies.length} repl{replies.length === 1 ? 'y' : 'ies'}</h4>
@@ -259,8 +267,10 @@ export default function ForumPage({ promptSignIn }) {
                   <Avatar profile={r.profiles} />
                   <div>
                     <div className="who">{r.profiles?.display_name || 'Unknown'} <span className="muted" style={{ fontWeight: 400, fontSize: '0.75rem' }}>· {timeAgo(r.created_at)}</span></div>
+                    <ProfileBadges profile={r.profiles} />
                     <div className="txt">{r.body}</div>
                   </div>
+                  <ReportButton targetType="comment" targetId={r.id} ownerId={r.author_id} promptSignIn={promptSignIn} />
                 </div>
               ))}
               {replies.length === 0 && <p className="muted">No replies yet.</p>}

@@ -20,13 +20,8 @@ export async function findOrCreateConversation(supabase, meId, otherId) {
     if (shared && shared.length) return shared[0].conversation_id
   }
 
-  // Otherwise create a new conversation and add both participants.
-  const { data: conv, error } = await supabase.from('conversations').insert({}).select().single()
+  // The database verifies the caller and adds both members atomically.
+  const { data: conversationId, error } = await supabase.rpc('create_conversation', { other_user: otherId })
   if (error) throw error
-  const { error: memErr } = await supabase.from('conversation_members').insert([
-    { conversation_id: conv.id, user_id: meId },
-    { conversation_id: conv.id, user_id: otherId },
-  ])
-  if (memErr) throw memErr
-  return conv.id
+  return conversationId
 }

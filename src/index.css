@@ -328,6 +328,42 @@ select.input { cursor: pointer; }
 .danger-zone h2 { color: #ff9a9a; }
 .btn-danger { background: #a93232; }
 .btn-danger:hover { box-shadow: 0 6px 20px rgba(200, 55, 55, .3); }
+
+/* ---------- safety reports and staff workspace ---------- */
+.profile-badges { display: inline-flex; gap: 5px; flex-wrap: wrap; margin: 3px 0; }
+.badge-admin { background: rgba(245, 158, 11, .16); color: #ffd27b; border: 1px solid rgba(245, 158, 11, .4); }
+.badge-staff { background: rgba(79, 124, 255, .13); color: #a9c1ff; border: 1px solid rgba(79, 124, 255, .3); }
+.badge-verified { background: rgba(34, 197, 138, .13); color: #7de3b9; border: 1px solid rgba(34, 197, 138, .35); }
+.report-control { position: relative; }
+.report-form { display: grid; gap: 10px; min-width: min(320px, 82vw); padding: 14px; margin: 6px 0 12px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 12px; }
+.report-form label, .staff-reason { display: grid; gap: 6px; color: var(--muted); font-size: .82rem; }
+.report-form .input, .staff-reason .input { color: var(--text); }
+.report-actions, .staff-actions, .staff-account-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.thread-report { display: flex; justify-content: flex-end; margin: -6px 0 12px; }
+.staff-page { max-width: 1000px; }
+.staff-tabs, .staff-status { margin: 18px 0; }
+.staff-card { padding: 18px; margin: 12px 0; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); }
+.staff-card-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 12px; }
+.staff-card-head > div { display: flex; gap: 8px; align-items: center; }
+.staff-target { white-space: pre-wrap; overflow-wrap: anywhere; }
+.staff-card .staff-reason { margin: 12px 0; max-width: 600px; }
+.staff-notes { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+.staff-notes summary { cursor: pointer; font-weight: 700; }
+.staff-note { margin: 12px 0; padding: 10px; background: var(--bg-2); border-radius: 8px; white-space: pre-wrap; }
+.staff-note-form { display: flex; gap: 8px; margin-top: 12px; }
+.staff-note-form .input { flex: 1; }
+.staff-history-row { padding: 14px 0; border-top: 1px solid var(--border-soft); overflow-wrap: anywhere; }
+.staff-history-row p { margin-top: 6px; }
+.staff-search { max-width: 600px; }
+.staff-account { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+.staff-account-actions { justify-content: flex-end; max-width: 440px; }
+.staff-role-list { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+
+@media (max-width: 680px) {
+  .staff-card-head, .staff-account { align-items: flex-start; flex-direction: column; }
+  .staff-account-actions { justify-content: flex-start; }
+  .staff-note-form { flex-direction: column; }
+}
 .settings-success { color: #8de0b0; margin-top: 14px; }
 
 /* ---------- auth prompt ---------- */

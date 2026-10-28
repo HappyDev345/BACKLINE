@@ -28,6 +28,7 @@ export function DemoProvider({ children }) {
   const [notifications, setNotifications] = useState(demoNotifications)
   const [conversations, setConversations] = useState(demoConversations)
   const [messages, setMessages] = useState(demoMessages)
+  const [reports, setReports] = useState([])
 
   // Pages use these lists like shared storage while running without a backend.
   return (
@@ -42,6 +43,7 @@ export function DemoProvider({ children }) {
       notifications, setNotifications,
       conversations, setConversations,
       messages, setMessages,
+      reports, setReports,
     }}>
       {children}
     </DemoContext.Provider>

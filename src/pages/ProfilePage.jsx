@@ -10,6 +10,8 @@ import ProjectCard from '../components/ProjectCard'
 import PostCard from '../components/PostCard'
 import { timeAgo } from '../lib/utils'
 import { getUserFacingError } from '../lib/errorMessages'
+import ReportButton from '../components/ReportButton'
+import ProfileBadges from '../components/ProfileBadges'
 
 export default function ProfilePage({ promptSignIn }) {
   const { id } = useParams()
@@ -51,13 +53,18 @@ export default function ProfilePage({ promptSignIn }) {
       return
     }
     try {
-      const { data: p, error: profileError } = await supabase.from('profiles').select('*').eq('id', targetId).single()
+      const { data: p, error: profileError } = await supabase.from('profiles')
+        .select('*, staff_roles(role), profile_badges(badge)').eq('id', targetId).single()
       if (profileError) throw profileError
       setTarget(p)
-      const { data: projs, error: projectsError } = await supabase.from('projects').select('*, profiles:creator_id(id, display_name, role_title, avatar_url, location)').eq('creator_id', targetId).order('created_at', { ascending: false })
+      const { data: projs, error: projectsError } = await supabase.from('projects')
+        .select('*, profiles:creator_id(id, display_name, role_title, avatar_url, location, staff_roles(role), profile_badges(badge))')
+        .eq('creator_id', targetId).order('created_at', { ascending: false })
       if (projectsError) throw projectsError
       setProjects(projs || [])
-      const { data: ps, error: postsError } = await supabase.from('posts').select('*, profiles:author_id(id, display_name, role_title, avatar_url), likes(count), comments(count)').eq('author_id', targetId).order('created_at', { ascending: false }).limit(20)
+      const { data: ps, error: postsError } = await supabase.from('posts')
+        .select('*, profiles:author_id(id, display_name, role_title, avatar_url, staff_roles(role), profile_badges(badge)), likes(count), comments(count)')
+        .eq('author_id', targetId).order('created_at', { ascending: false }).limit(20)
       if (postsError) throw postsError
       setPosts(ps || [])
       const { count: f1, error: followersError } = await supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('followee_id', targetId)
@@ -178,6 +185,7 @@ export default function ProfilePage({ promptSignIn }) {
             <Avatar profile={target} size="lg" />
             <div className="main">
               <h1>{target.display_name || 'Unnamed user'}</h1>
+              <ProfileBadges profile={target} />
               <p className="muted">
                 {target.role_title && target.role_title + ' · '}
                 {target.location || 'Location not set'}
@@ -196,6 +204,7 @@ export default function ProfilePage({ promptSignIn }) {
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <ReportButton targetType="user" targetId={target.id} ownerId={target.id} promptSignIn={promptSignIn} />
               {isOwn ? (
                 <button className="btn btn-ghost btn-sm" onClick={openEdit}>Edit profile</button>
               ) : session ? (
@@ -226,7 +235,7 @@ export default function ProfilePage({ promptSignIn }) {
             {projects.length === 0 && <div className="panel-empty">No projects published yet.</div>}
             <div className="grid" style={{ marginTop: 0 }}>
               {projects.map(p => (
-                <ProjectCard key={p.id} p={p} saved={false} onToggleSave={() => promptSignIn()} onOpen={() => {}} />
+                <ProjectCard key={p.id} p={p} saved={false} onToggleSave={() => promptSignIn()} onOpen={() => {}} promptSignIn={promptSignIn} />
               ))}
             </div>
           </>

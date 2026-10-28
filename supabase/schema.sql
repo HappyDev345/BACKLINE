@@ -3,6 +3,7 @@
 -- Run this once in: Supabase Dashboard -> SQL Editor -> New query
 -- This script creates the online tables, access rules, automatic alerts,
 -- and image bucket used by the full-stack version of the app.
+-- Apply timestamped migrations after this base schema; see README.md.
 -- ============================================================
 
 -- Adds the ID generator used when a new database record is created.
