@@ -238,7 +238,10 @@ export default function StaffPage() {
       if (error) throw error
       setAccounts(data || [])
     } catch (error) {
-      setLoadError(getUserFacingError(error, 'We couldn’t load accounts.'))
+      const message = error?.code === 'PGRST202' || error?.code === '42883'
+        ? 'The account-management database update is not available yet. Run the latest suspended-profile migration in Supabase, then refresh this page.'
+        : getUserFacingError(error, 'We couldn’t load accounts.')
+      setLoadError(message)
     }
   }
 

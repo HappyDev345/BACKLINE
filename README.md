@@ -82,7 +82,9 @@ lookup so they can reinstate or manage them. Existing public content authored
 by a suspended account may remain visible, but the account is anonymized as
 “Unknown User” and no public link to its profile is shown. The visibility
 migrations drop and recreate their policy, so the latest SQL can be run again
-if an earlier attempt stopped after creating it.
+if an earlier attempt stopped after creating it. The staff visibility migration
+also adds the admin-only account lookup used by `/staff` and refreshes the
+Supabase API schema cache; run it before deploying the matching frontend.
 After applying the roles migration, create the first admin from the
 Supabase SQL Editor using an account that has already signed up. Replace the
 email below with the trusted operator's exact account email:

@@ -3,6 +3,11 @@
 Notable changes to BACKLINE are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [1.2.10] - 2026-10-28
+
+- Improved `/staff` account loading guidance when the admin account lookup
+  migration has not been applied or refreshed in Supabase.
+
 ## [1.2.9] - 2026-10-28
 
 - Made the suspended-profile visibility migrations safely replace an existing
