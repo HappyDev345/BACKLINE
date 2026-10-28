@@ -208,7 +208,7 @@ export default function StaffPage() {
 
   async function loadAccounts(search = '') {
     setLoadError('')
-    const selection = 'id, display_name, username, created_at, staff_roles(role), profile_badges(badge), account_restrictions(suspended, reason)'
+    const selection = 'id, display_name, username, created_at, staff_roles(role), profile_badges(badge), account_restrictions!account_restrictions_user_id_fkey(suspended, reason)'
     try {
       const term = search.trim()
       if (!term) {

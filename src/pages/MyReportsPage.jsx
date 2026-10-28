@@ -39,7 +39,7 @@ export default function MyReportsPage() {
   return (
     <div className="page">
       <h1>Your reports</h1>
-      <p className="muted">Report details are private to you and authorized staff.</p>
+      <p className="muted">Report details are private to you and authorised staff.</p>
       {error && <p className="error-text" role="alert">{error} <button className="clear-btn" onClick={load}>Try again</button></p>}
       {!error && reports.length === 0 && <div className="panel-empty">You haven’t submitted any reports.</div>}
       {reports.map((report) => (

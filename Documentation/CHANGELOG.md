@@ -3,6 +3,11 @@
 Notable changes to BACKLINE are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [1.2.3] - 2026-10-28
+
+- Fixed the staff account lookup by explicitly selecting the account-owner
+  relationship for account restrictions.
+
 ## [1.2.2] - 2026-10-28
 
 - Fixed sent messages not appearing until a later refresh when Realtime updates
