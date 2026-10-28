@@ -3,9 +3,10 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { isDemoMode, supabase } from '../lib/supabase'
+import { getUserFacingError } from '../lib/errorMessages'
 
 export default function AuthModal({ open, onClose }) {
-  const { signIn, signUp } = useAuth()
+  const { signIn, signInAsDemoUser, signUp } = useAuth()
   const [mode, setMode] = useState('in')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -36,7 +37,14 @@ export default function AuthModal({ open, onClose }) {
         onClose()
       }
     } catch (err) {
-      setError(err.message)
+      setError(getUserFacingError(
+        err,
+        mode === 'reset'
+          ? 'We couldn’t send a reset link right now. Please try again.'
+          : mode === 'in'
+            ? 'We couldn’t sign you in right now. Please try again.'
+            : 'We couldn’t create your account right now. Please try again.'
+      ))
     } finally {
       setBusy(false)
     }
@@ -47,7 +55,17 @@ export default function AuthModal({ open, onClose }) {
       <div className="modal" style={{ maxWidth: 420 }}>
         <button className="modal-close" onClick={onClose} aria-label="Close">&#10005;</button>
         <h2>{mode === 'in' ? 'Welcome back' : mode === 'up' ? 'Join BACKLINE' : 'Reset your password'}</h2>
-        {isDemoMode && <p className="hint">Preview mode: use any email and password to explore. Nothing is saved.</p>}
+        {isDemoMode && <p className="hint">Preview mode: continue as the sample user or use any email and password to explore. Nothing is saved.</p>}
+        {isDemoMode && mode === 'in' && (
+          <button
+            className="btn"
+            type="button"
+            style={{ width: '100%', marginTop: 16 }}
+            onClick={() => { signInAsDemoUser(); onClose() }}
+          >
+            Continue as sample user
+          </button>
+        )}
         {mode === 'reset' ? (
           <button className="clear-btn" type="button" onClick={() => { setMode('in'); setError(''); setNotice('') }}>Back to sign in</button>
         ) : (
@@ -77,7 +95,7 @@ export default function AuthModal({ open, onClose }) {
             <label htmlFor="auth-pass">Password</label>
             <input id="auth-pass" className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
           </div>}
-          {error && <p className="error-text">{error}</p>}
+          {error && <p className="error-text" role="alert">{error}</p>}
           {notice && <p className="hint" role="status">{notice}</p>}
           <button className="btn" style={{ width: '100%', marginTop: 16 }} disabled={busy}>
             {busy ? 'Please wait…' : mode === 'in' ? 'Sign in' : mode === 'up' ? 'Create account' : 'Send reset link'}

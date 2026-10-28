@@ -34,13 +34,20 @@ Unknown routes show a friendly not-found message.
 
 ## What each part of the site does
 
-- **Landing:** `LandingPage.jsx` introduces the service and links to the community pages. Its crew, call, and discussion showcase sections are illustrative examples. Featured projects use examples in preview mode and the three newest projects in connected mode.
+- **Landing:** `LandingPage.jsx` introduces the service and links to the community pages. All illustrative crew, call, and discussion showcases appear only in preview mode. Featured projects use examples in preview mode and the three newest projects in connected mode, with an empty state when there are no public projects.
 - **Discover:** `DiscoverPage.jsx` searches, filters, and sorts projects; signed-in users can save listings and publish projects. `ProjectCard.jsx` displays a listing, and `ProjectModal.jsx` shows its details. “Express interest” opens a conversation and sends a message to the creator; it does **not** submit a formal application or assign someone to the project.
 - **People and profiles:** `PeoplePage.jsx` searches people by name, username, role, location, or skill. Signed-in users can follow or message them. `ProfilePage.jsx` shows a person’s bio, skills, projects, posts, and follow counts. Owners can edit profile details and, when connected, upload an avatar to Supabase Storage.
 - **Feed:** `FeedPage.jsx` requires sign-in. Members can switch between everyone’s posts and posts by people they follow, then publish, like, and comment. `PostCard.jsx` handles post display and loading comments when expanded.
 - **Forum:** `ForumPage.jsx` uses the same posts data as the feed, distinguishing threads by their category. Visitors can browse and filter threads; signed-in members can start threads and reply.
 - **Messages:** `MessagesPage.jsx` shows conversations and their messages. Starting a chat reuses an existing conversation between the two people or creates one using `conversations.js`. Connected conversations subscribe to new messages in real time.
 - **Notifications:** `NotificationsPage.jsx` lists alerts and can mark them read. In connected mode, database triggers create alerts for likes, comments, follows, and messages; Realtime updates the unread count in the navigation.
+
+Demo records and demo-specific UI are limited to preview mode. When Supabase is
+connected, pages use database records or their normal empty states.
+
+User-facing errors use brief, actionable messages rather than raw backend
+responses. Failed data loads and community actions display feedback instead of
+being presented as successful empty results.
 
 ## What’s behind the connected mode
 

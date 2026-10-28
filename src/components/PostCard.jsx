@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { isDemoMode, supabase } from '../lib/supabase'
 import { useDemoData } from '../context/DemoContext'
 import { timeAgo } from '../lib/utils'
+import { getUserFacingError } from '../lib/errorMessages'
 import Avatar from './Avatar'
 
 export default function PostCard({ post, liked, onLike, promptSignIn }) {
@@ -16,10 +17,12 @@ export default function PostCard({ post, liked, onLike, promptSignIn }) {
   const [loaded, setLoaded] = useState(false)
   const [body, setBody] = useState('')
   const [count, setCount] = useState(post.comments?.[0]?.count || 0)
+  const [error, setError] = useState('')
 
   const likeCount = post.likes?.[0]?.count || 0
 
   async function toggleComments() {
+    setError('')
     if (!expanded && !loaded) {
       // Load sample replies from memory in preview mode; otherwise request them.
       if (isDemoMode) {
@@ -28,11 +31,17 @@ export default function PostCard({ post, liked, onLike, promptSignIn }) {
         setExpanded(true)
         return
       }
-      const { data } = await supabase
-        .from('comments').select('*, profiles:author_id(id, display_name, avatar_url)')
-        .eq('post_id', post.id).order('created_at', { ascending: true })
-      setComments(data || [])
-      setLoaded(true)
+      try {
+        const { data, error: commentsError } = await supabase
+          .from('comments').select('*, profiles:author_id(id, display_name, avatar_url)')
+          .eq('post_id', post.id).order('created_at', { ascending: true })
+        if (commentsError) throw commentsError
+        setComments(data || [])
+        setLoaded(true)
+      } catch (commentsError) {
+        setError(getUserFacingError(commentsError, 'We couldn’t load comments right now. Please try again.'))
+        return
+      }
     }
     setExpanded(!expanded)
   }
@@ -42,6 +51,7 @@ export default function PostCard({ post, liked, onLike, promptSignIn }) {
     e.preventDefault()
     if (!session) return promptSignIn()
     if (!body.trim()) return
+    setError('')
     if (isDemoMode) {
       const comment = {
         id: 'demo-comment-' + Date.now(),
@@ -60,13 +70,18 @@ export default function PostCard({ post, liked, onLike, promptSignIn }) {
       setBody('')
       return
     }
-    const { data, error } = await supabase.from('comments')
-      .insert({ post_id: post.id, author_id: session.user.id, body: body.trim() })
-      .select('*, profiles:author_id(id, display_name, avatar_url)').single()
-    if (!error) {
-      setComments(c => [...c, data])
-      setCount(c => c + 1)
-      setBody('')
+    try {
+      const { data, error } = await supabase.from('comments')
+        .insert({ post_id: post.id, author_id: session.user.id, body: body.trim() })
+        .select('*, profiles:author_id(id, display_name, avatar_url)').single()
+      if (error) throw error
+      if (data) {
+        setComments(c => [...c, data])
+        setCount(c => c + 1)
+        setBody('')
+      }
+    } catch (error) {
+      setError(getUserFacingError(error, 'We couldn’t post your comment right now. Please try again.'))
     }
   }
 
@@ -91,6 +106,7 @@ export default function PostCard({ post, liked, onLike, promptSignIn }) {
       </div>
       {expanded && (
         <div className="comments">
+          {error && <p className="error-text" role="alert">{error}</p>}
           {comments.map(c => (
             <div className="comment" key={c.id}>
               <Avatar profile={c.profiles} />

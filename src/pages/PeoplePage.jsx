@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { isDemoMode, supabase } from '../lib/supabase'
 import { useDemoData } from '../context/DemoContext'
 import { findOrCreateConversation } from '../lib/conversations'
+import { getUserFacingError } from '../lib/errorMessages'
 import Avatar from '../components/Avatar'
 
 export default function PeoplePage({ promptSignIn }) {
@@ -15,19 +16,27 @@ export default function PeoplePage({ promptSignIn }) {
   const [followingSet, setFollowingSet] = useState(new Set())
   const [query, setQuery] = useState('')
   const [busyMsg, setBusyMsg] = useState('')
+  const [error, setError] = useState('')
 
   async function load() {
+    setError('')
     // Preview profiles and follow markers come from the shared local sample data.
     if (isDemoMode) {
       setPeople(demo.profiles)
       setFollowingSet(new Set(demo.follows.filter((follow) => follow.follower_id === session?.user?.id).map((follow) => follow.followee_id)))
       return
     }
-    const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false }).limit(100)
-    setPeople(data || [])
-    if (session) {
-      const { data: follows } = await supabase.from('follows').select('followee_id').eq('follower_id', session.user.id)
-      setFollowingSet(new Set((follows || []).map(f => f.followee_id)))
+    try {
+      const { data, error: peopleError } = await supabase.from('profiles').select('*').order('created_at', { ascending: false }).limit(100)
+      if (peopleError) throw peopleError
+      setPeople(data || [])
+      if (session) {
+        const { data: follows, error: followsError } = await supabase.from('follows').select('followee_id').eq('follower_id', session.user.id)
+        if (followsError) throw followsError
+        setFollowingSet(new Set((follows || []).map(f => f.followee_id)))
+      }
+    } catch (loadError) {
+      setError(getUserFacingError(loadError, 'We couldn’t load people right now. Please try again.'))
     }
   }
 
@@ -48,6 +57,7 @@ export default function PeoplePage({ promptSignIn }) {
 
   async function toggleFollow(id) {
     if (!session) return promptSignIn()
+    setError('')
     // A preview follow updates shared in-memory state so other screens can use it.
     if (isDemoMode) {
       const following = followingSet.has(id)
@@ -62,17 +72,25 @@ export default function PeoplePage({ promptSignIn }) {
         : [...current, { follower_id: session.user.id, followee_id: id }])
       return
     }
-    if (followingSet.has(id)) {
-      await supabase.from('follows').delete().eq('follower_id', session.user.id).eq('followee_id', id)
-      setFollowingSet(s => { const n = new Set(s); n.delete(id); return n })
-    } else {
-      await supabase.from('follows').insert({ follower_id: session.user.id, followee_id: id })
-      setFollowingSet(s => new Set(s).add(id))
+    setError('')
+    try {
+      if (followingSet.has(id)) {
+        const { error: followError } = await supabase.from('follows').delete().eq('follower_id', session.user.id).eq('followee_id', id)
+        if (followError) throw followError
+        setFollowingSet(s => { const n = new Set(s); n.delete(id); return n })
+      } else {
+        const { error: followError } = await supabase.from('follows').insert({ follower_id: session.user.id, followee_id: id })
+        if (followError) throw followError
+        setFollowingSet(s => new Set(s).add(id))
+      }
+    } catch (followError) {
+      setError(getUserFacingError(followError, 'We couldn’t update your connection right now. Please try again.'))
     }
   }
 
   async function message(id) {
     if (!session) return promptSignIn()
+    setError('')
     setBusyMsg('Opening conversation…')
     try {
       // Create a sample conversation locally when one does not already exist.
@@ -90,7 +108,8 @@ export default function PeoplePage({ promptSignIn }) {
       const convId = await findOrCreateConversation(supabase, session.user.id, id)
       navigate('/messages', { state: { open: convId } })
     } catch (e) {
-      setBusyMsg('Could not open conversation: ' + e.message)
+      setBusyMsg('')
+      setError(getUserFacingError(e, 'We couldn’t start a conversation right now. Please try again.'))
     }
   }
 
@@ -104,8 +123,9 @@ export default function PeoplePage({ promptSignIn }) {
         </div>
       </header>
       {busyMsg && <p className="hint" style={{ marginBottom: 12 }}>{busyMsg}</p>}
+      {error && <p className="error-text" role="alert">{error}</p>}
       {/* Each result links to a profile and offers follow/message actions when signed in. */}
-      {shown.length === 0 && <div className="panel-empty">No people found. Invite your crew to join BACKLINE!</div>}
+      {!error && shown.length === 0 && <div className="panel-empty">No people found. Invite your crew to join BACKLINE!</div>}
       {shown.map(p => (
         <div className="people-row" key={p.id}>
           <Link to={'/profile/' + p.id}><Avatar profile={p} size="lg" /></Link>

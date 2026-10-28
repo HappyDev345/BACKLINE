@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { isDemoMode, supabase } from '../lib/supabase'
+import { getUserFacingError } from '../lib/errorMessages'
 
 export default function AccountSettingsPage({ promptSignIn }) {
   const { session, profile, loading, signOut } = useAuth()
@@ -56,7 +57,7 @@ export default function AccountSettingsPage({ promptSignIn }) {
       if (updateError) throw updateError
       setConfirmation('Check your inbox to confirm the email address change.')
     } catch (err) {
-      setError(err.message)
+      setError(getUserFacingError(err, 'We couldn’t update your email right now. Please try again.'))
     } finally {
       setBusy(false)
     }
@@ -78,7 +79,7 @@ export default function AccountSettingsPage({ promptSignIn }) {
       setConfirmPassword('')
       setConfirmation('Your password has been updated.')
     } catch (err) {
-      setError(err.message)
+      setError(getUserFacingError(err, 'We couldn’t update your password right now. Please try again.'))
     } finally {
       setBusy(false)
     }
@@ -95,18 +96,11 @@ export default function AccountSettingsPage({ promptSignIn }) {
     setBusy(true)
     try {
       const { error: deleteError } = await supabase.functions.invoke('delete-account')
-      if (deleteError) {
-        let message = deleteError.message
-        if (deleteError.context instanceof Response) {
-          const response = await deleteError.context.json()
-          if (typeof response?.error === 'string') message = response.error
-        }
-        throw new Error(message)
-      }
+      if (deleteError) throw deleteError
       await signOut({ scope: 'local' })
       navigate('/')
     } catch (err) {
-      setError(err.message)
+      setError(getUserFacingError(err, 'We couldn’t delete your account right now. Please try again.'))
       setBusy(false)
     }
   }

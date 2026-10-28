@@ -77,6 +77,13 @@ export function AuthProvider({ children }) {
     if (error) throw error
   }
 
+  function signInAsDemoUser() {
+    if (!isDemoMode) throw new Error('Sample user sign-in is only available in preview mode.')
+    const person = demo.profiles.find((profile) => profile.id === 'demo-user') || demoProfiles[0]
+    setSession({ user: { id: person.id } })
+    setProfile(person)
+  }
+
   async function signOut(options) {
     if (isDemoMode) {
       setSession(null)
@@ -96,7 +103,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthCtx.Provider value={{ session, profile, loading, signUp, signIn, signOut, refreshProfile, updateDemoProfile }}>
+    <AuthCtx.Provider value={{ session, profile, loading, signUp, signIn, signInAsDemoUser, signOut, refreshProfile, updateDemoProfile }}>
       {children}
     </AuthCtx.Provider>
   )

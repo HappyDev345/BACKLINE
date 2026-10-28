@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { isDemoMode, supabase } from '../lib/supabase'
 import { useDemoData } from '../context/DemoContext'
 import { timeAgo } from '../lib/utils'
+import { getUserFacingError } from '../lib/errorMessages'
 import Avatar from '../components/Avatar'
 
 export default function MessagesPage({ promptSignIn }) {
@@ -17,6 +18,7 @@ export default function MessagesPage({ promptSignIn }) {
   const [others, setOthers] = useState({})
   const [msgs, setMsgs] = useState([])
   const [text, setText] = useState('')
+  const [error, setError] = useState('')
   const bottomRef = useRef(null)
 
   useEffect(() => { if (session) loadConvs() }, [session])
@@ -39,6 +41,7 @@ export default function MessagesPage({ promptSignIn }) {
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs])
 
   async function loadConvs() {
+    setError('')
     // Preview conversations already include the other person's profile and last message.
     if (isDemoMode) {
       const list = demo.conversations
@@ -47,25 +50,37 @@ export default function MessagesPage({ promptSignIn }) {
       if (!active && list.length) setActive(list[0].id)
       return
     }
-    const { data: mem } = await supabase.from('conversation_members').select('conversation_id').eq('user_id', session.user.id)
-    const ids = (mem || []).map(r => r.conversation_id)
-    if (!ids.length) return
-    const { data: allMem } = await supabase.from('conversation_members').select('conversation_id, user_id').in('conversation_id', ids)
-    const otherIds = [...new Set((allMem || []).filter(m => m.user_id !== session.user.id).map(m => m.user_id))]
-    const { data: profiles } = await supabase.from('profiles').select('*').in('id', otherIds)
-    const profMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
-    const { data: lastMsgs } = await supabase.from('messages').select('conversation_id, body, created_at').in('conversation_id', ids).order('created_at', { ascending: false })
-    const lastByConv = {}
-    for (const m of lastMsgs || []) if (!lastByConv[m.conversation_id]) lastByConv[m.conversation_id] = m
-    const otherByConv = {}
-    for (const m of allMem || []) if (m.user_id !== session.user.id) otherByConv[m.conversation_id] = profMap[m.user_id]
-    const list = ids
-      .map(id => ({ id, other: otherByConv[id], last: lastByConv[id] }))
-      .filter(c => c.other)
-      .sort((a, b) => new Date(b.last?.created_at || 0) - new Date(a.last?.created_at || 0))
-    setOthers(Object.fromEntries(list.map(c => [c.id, c.other])))
-    setConvs(list)
-    if (!active && list.length) setActive(list[0].id)
+    try {
+      const { data: mem, error: membersError } = await supabase.from('conversation_members').select('conversation_id').eq('user_id', session.user.id)
+      if (membersError) throw membersError
+      const ids = (mem || []).map(r => r.conversation_id)
+      if (!ids.length) {
+        setConvs([])
+        setOthers({})
+        return
+      }
+      const { data: allMem, error: allMembersError } = await supabase.from('conversation_members').select('conversation_id, user_id').in('conversation_id', ids)
+      if (allMembersError) throw allMembersError
+      const otherIds = [...new Set((allMem || []).filter(m => m.user_id !== session.user.id).map(m => m.user_id))]
+      const { data: profiles, error: profilesError } = await supabase.from('profiles').select('*').in('id', otherIds)
+      if (profilesError) throw profilesError
+      const profMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
+      const { data: lastMsgs, error: messagesError } = await supabase.from('messages').select('conversation_id, body, created_at').in('conversation_id', ids).order('created_at', { ascending: false })
+      if (messagesError) throw messagesError
+      const lastByConv = {}
+      for (const m of lastMsgs || []) if (!lastByConv[m.conversation_id]) lastByConv[m.conversation_id] = m
+      const otherByConv = {}
+      for (const m of allMem || []) if (m.user_id !== session.user.id) otherByConv[m.conversation_id] = profMap[m.user_id]
+      const list = ids
+        .map(id => ({ id, other: otherByConv[id], last: lastByConv[id] }))
+        .filter(c => c.other)
+        .sort((a, b) => new Date(b.last?.created_at || 0) - new Date(a.last?.created_at || 0))
+      setOthers(Object.fromEntries(list.map(c => [c.id, c.other])))
+      setConvs(list)
+      if (!active && list.length) setActive(list[0].id)
+    } catch (loadError) {
+      setError(getUserFacingError(loadError, 'We couldn’t load your conversations right now. Please try again.'))
+    }
   }
 
   async function loadMsgs() {
@@ -73,17 +88,24 @@ export default function MessagesPage({ promptSignIn }) {
       setMsgs(demo.messages.filter((message) => message.conversation_id === active))
       return
     }
-    const { data } = await supabase
-      .from('messages')
-      .select('*, profiles:sender_id(id, display_name, avatar_url)')
-      .eq('conversation_id', active)
-      .order('created_at', { ascending: true })
-    setMsgs(data || [])
+    try {
+      const { data, error: messagesError } = await supabase
+        .from('messages')
+        .select('*, profiles:sender_id(id, display_name, avatar_url)')
+        .eq('conversation_id', active)
+        .order('created_at', { ascending: true })
+      if (messagesError) throw messagesError
+      setMsgs(data || [])
+      setError('')
+    } catch (messagesError) {
+      setError(getUserFacingError(messagesError, 'We couldn’t load these messages right now. Please try again.'))
+    }
   }
 
   async function send(e) {
     e.preventDefault()
     if (!text.trim() || !session) return
+    setError('')
     // Add a temporary message to both the open chat and its conversation preview.
     if (isDemoMode) {
       const message = {
@@ -105,12 +127,17 @@ export default function MessagesPage({ promptSignIn }) {
       setText('')
       return
     }
-    const { error } = await supabase.from('messages').insert({
-      conversation_id: active,
-      sender_id: session.user.id,
-      body: text.trim(),
-    })
-    if (!error) setText('')
+    try {
+      const { error } = await supabase.from('messages').insert({
+        conversation_id: active,
+        sender_id: session.user.id,
+        body: text.trim(),
+      })
+      if (error) throw error
+      setText('')
+    } catch (error) {
+      setError(getUserFacingError(error, 'We couldn’t send your message right now. Please try again.'))
+    }
   }
 
   if (!session) {
@@ -127,7 +154,7 @@ export default function MessagesPage({ promptSignIn }) {
     <div className="messages-wrap">
       {/* The left column selects a conversation; the right column shows its messages. */}
       <aside className="conv-list">
-        {convs.length === 0 && (
+        {convs.length === 0 && !error && (
           <div className="panel-empty">
             No conversations yet.<br />Find people on the People page and say hello.
           </div>
@@ -144,6 +171,7 @@ export default function MessagesPage({ promptSignIn }) {
       </aside>
 
       <section className="thread-panel">
+        {error && <p className="error-text" role="alert">{error}</p>}
         {active ? (
           <>
             <div className="thread-head">{others[active]?.display_name || 'Conversation'}</div>
