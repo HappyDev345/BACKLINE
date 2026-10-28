@@ -3,6 +3,17 @@
 Notable changes to BACKLINE are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [1.2.9] - 2026-10-28
+
+- Made the suspended-profile visibility migrations safely replace an existing
+  visibility policy, avoiding a duplicate-policy error on Supabase.
+
+## [1.2.8] - 2026-10-28
+
+- Hid suspended profiles from normal reads for admins as well as other users,
+  while preserving account management and reinstatement through a dedicated
+  admin-only lookup.
+
 ## [1.2.7] - 2026-10-28
 
 - Anonymized suspended account references across posts, replies, projects,

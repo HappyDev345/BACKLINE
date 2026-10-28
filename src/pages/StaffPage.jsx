@@ -231,30 +231,12 @@ export default function StaffPage() {
 
   async function loadAccounts(search = '') {
     setLoadError('')
-    const selection = 'id, display_name, username, created_at, staff_roles(role), profile_badges(badge), account_restrictions!account_restrictions_user_id_fkey(suspended, reason)'
     try {
-      const term = search.trim()
-      if (!term) {
-        const { data, error } = await supabase.from('profiles').select(selection)
-          .order('created_at', { ascending: false }).limit(100)
-        if (error) throw error
-        setAccounts(data || [])
-        return
-      }
-
-      const searches = [
-        supabase.from('profiles').select(selection).ilike('display_name', `%${term}%`).limit(100),
-        supabase.from('profiles').select(selection).ilike('username', `%${term}%`).limit(100),
-      ]
-      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(term)) {
-        searches.push(supabase.from('profiles').select(selection).eq('id', term).limit(1))
-      }
-      const results = await Promise.all(searches)
-      const failed = results.find((result) => result.error)
-      if (failed) throw failed.error
-      const uniqueAccounts = new Map()
-      results.forEach(({ data }) => (data || []).forEach((account) => uniqueAccounts.set(account.id, account)))
-      setAccounts([...uniqueAccounts.values()])
+      const { data, error } = await supabase.rpc('admin_list_accounts', {
+        search_term: search.trim(),
+      })
+      if (error) throw error
+      setAccounts(data || [])
     } catch (error) {
       setLoadError(getUserFacingError(error, 'We couldn’t load accounts.'))
     }

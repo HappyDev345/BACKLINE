@@ -17,5 +17,6 @@ revoke all on function public.profile_is_visible(uuid) from public;
 grant execute on function public.profile_is_visible(uuid) to anon, authenticated;
 
 drop policy if exists "profiles readable" on public.profiles;
+drop policy if exists "visible profiles readable" on public.profiles;
 create policy "visible profiles readable" on public.profiles for select
   using (public.profile_is_visible(id));
