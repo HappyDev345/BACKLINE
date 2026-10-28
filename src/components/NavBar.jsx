@@ -81,7 +81,6 @@ export default function NavBar({ onSignIn }) {
                 <NavLink to="/people" onClick={() => setMenuOpen(false)}>People</NavLink>
                 <NavLink to="/forum" onClick={() => setMenuOpen(false)}>Forum</NavLink>
                 <NavLink to="/messages" onClick={() => setMenuOpen(false)}>Messages</NavLink>
-                <NavLink to="/my-reports" onClick={() => setMenuOpen(false)}>My reports</NavLink>
                 {staffRoles.length > 0 && <NavLink to="/staff" onClick={() => setMenuOpen(false)}>Staff</NavLink>}
                 <NavLink
                   to="/notifications"

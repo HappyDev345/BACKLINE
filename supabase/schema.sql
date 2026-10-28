@@ -124,7 +124,7 @@ create table if not exists public.notifications (
   id         uuid primary key default gen_random_uuid(),
   user_id    uuid not null references public.profiles(id) on delete cascade,
   actor_id   uuid references public.profiles(id) on delete cascade,
-  type       text not null check (type in ('like', 'comment', 'follow', 'message')),
+  type       text not null check (type in ('like', 'comment', 'follow', 'message', 'report_reviewed', 'report_actioned')),
   ref_id     text,
   read       boolean not null default false,
   created_at timestamptz not null default now()

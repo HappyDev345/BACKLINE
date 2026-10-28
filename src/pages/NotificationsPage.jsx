@@ -15,6 +15,11 @@ const LABELS = {
   message: 'sent you a message',
 }
 
+const PRIVATE_REPORT_NOTIFICATIONS = {
+  report_reviewed: "Your report has been handled privately by a moderator. Please note that for privacy reasons, we're not able to share the specifics of the action taken, if any.",
+  report_actioned: "Your report has been handled privately by a moderator. Please note that for privacy reasons, we're not able to share the specifics of the action taken, if any.",
+}
+
 export default function NotificationsPage({ promptSignIn }) {
   const { session } = useAuth()
   const demo = useDemoData()
@@ -98,10 +103,16 @@ export default function NotificationsPage({ promptSignIn }) {
             }
           }}
         >
-          <Avatar profile={n.profiles} />
-          <div className="txt">
-            <b>{n.profiles?.display_name || 'Someone'}</b> {LABELS[n.type] || 'interacted with you'}
-          </div>
+          {PRIVATE_REPORT_NOTIFICATIONS[n.type] ? (
+            <div className="txt">{PRIVATE_REPORT_NOTIFICATIONS[n.type]}</div>
+          ) : (
+            <>
+              <Avatar profile={n.profiles} />
+              <div className="txt">
+                <b>{n.profiles?.display_name || 'Someone'}</b> {LABELS[n.type] || 'interacted with you'}
+              </div>
+            </>
+          )}
           <span className="time">{timeAgo(n.created_at)}</span>
         </div>
       ))}

@@ -3,6 +3,13 @@
 Notable changes to BACKLINE are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [1.2.5] - 2026-10-28
+
+- Removed the user-facing report history page and restricted report records to
+  authorised staff.
+- Added generic private notifications when reports are reviewed; notifications
+  do not identify staff, disclose decisions, or link to report details.
+
 ## [1.2.4] - 2026-10-28
 
 - Added reporting for individual private messages. Only admins can review
@@ -32,7 +39,7 @@ Notable changes to BACKLINE are recorded here. Versions follow
 - Added private reports for accounts, projects, posts, forum threads, and
   comments, with a staff review queue, case notes, content moderation, and
   action history.
-- Added `/my-reports` and the role-gated `/staff` workspace.
+- Added the role-gated `/staff` workspace.
 - Secured conversation membership through an atomic server-side operation;
   legacy conversations require an access review before being restored.
 

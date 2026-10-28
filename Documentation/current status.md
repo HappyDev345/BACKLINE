@@ -20,7 +20,6 @@ The main routes are:
 - `/forum` — discussions and replies
 - `/messages` — private conversations
 - `/notifications` — activity alerts
-- `/my-reports` — status of reports submitted by the signed-in user
 - `/staff` — role-gated staff report queue, case notes, action history, and admin account tools
 
 Unknown routes show a friendly not-found message.

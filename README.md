@@ -70,6 +70,9 @@ action history. Apply each migration once, in timestamp order. The later
 `20261028211000_report_private_messages.sql` migration enables reporting
 individual private messages. Only admins can review message reports, and staff
 can inspect only the specific reported message—not its conversation history.
+For existing projects that already applied earlier migrations, also apply
+`20261028212000_private_report_notifications.sql` to remove reporter access to
+report records and enable generic review notifications.
 After applying the roles migration, create the first admin from the
 Supabase SQL Editor using an account that has already signed up. Replace the
 email below with the trusted operator's exact account email:
@@ -85,9 +88,13 @@ on conflict (user_id, role) do nothing;
 Only admins can grant or revoke further staff roles. Feed/forum moderators can
 review and moderate posts, threads, and comments; project moderators can
 moderate projects. Account suspension, staff appointments, and verified badges
-are admin-only. Reports are private to the reporter and authorized staff;
-the reporting RPC limits submissions and the staff workspace records
-moderation actions and private case notes.
+are admin-only. Report records and case notes are private to authorized staff;
+reporters cannot view submitted report details or resolutions. When a report
+is finalized, its submitter receives only a generic notification that it was
+reviewed (and, when actioned, that action was taken). The notification does not
+identify staff, disclose the outcome, or link to report details. The reporting
+RPC limits submissions and the staff workspace records moderation actions and
+private case notes.
 
 Suspension blocks new community content, likes/follows/saves, reports, profile
 edits, and new conversations/messages while leaving public read access intact;
