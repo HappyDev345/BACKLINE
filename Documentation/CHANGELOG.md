@@ -3,6 +3,11 @@
 Notable changes to BACKLINE are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [1.3.0] - 2026-10-29
+
+- Added a dedicated `/saved` page where members can revisit and unsave saved
+  projects.
+
 ## [1.2.10] - 2026-10-28
 
 - Improved `/staff` account loading guidance when the admin account lookup
