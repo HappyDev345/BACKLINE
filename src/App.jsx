@@ -8,6 +8,7 @@ import LandingPage from './pages/LandingPage'
 import AboutPage from './pages/AboutPage'
 import FeedPage from './pages/FeedPage'
 import DiscoverPage from './pages/DiscoverPage'
+import SavedProjectsPage from './pages/SavedProjectsPage'
 import PeoplePage from './pages/PeoplePage'
 import ProfilePage from './pages/ProfilePage'
 import MessagesPage from './pages/MessagesPage'
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="/about" element={<AboutPage onSignIn={promptSignIn} />} />
         <Route path="/feed" element={<FeedPage promptSignIn={promptSignIn} />} />
         <Route path="/discover" element={<DiscoverPage promptSignIn={promptSignIn} />} />
+        <Route path="/saved" element={<SavedProjectsPage promptSignIn={promptSignIn} />} />
         <Route path="/people" element={<PeoplePage promptSignIn={promptSignIn} />} />
         <Route path="/profile" element={<ProfilePage promptSignIn={promptSignIn} />} />
         <Route path="/profile/:id" element={<ProfilePage promptSignIn={promptSignIn} />} />

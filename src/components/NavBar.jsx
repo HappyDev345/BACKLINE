@@ -78,6 +78,7 @@ export default function NavBar({ onSignIn }) {
             <NavLink to="/discover" onClick={() => setMenuOpen(false)}>Discover</NavLink>
             {session && (
               <>
+                <NavLink to="/saved" onClick={() => setMenuOpen(false)}>Saved projects</NavLink>
                 <NavLink to="/people" onClick={() => setMenuOpen(false)}>People</NavLink>
                 <NavLink to="/forum" onClick={() => setMenuOpen(false)}>Forum</NavLink>
                 <NavLink to="/messages" onClick={() => setMenuOpen(false)}>Messages</NavLink>
