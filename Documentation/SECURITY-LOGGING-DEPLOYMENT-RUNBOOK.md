@@ -9,9 +9,12 @@ changes to a **separate Supabase project first**.
 Initial staging deployment was completed on 2026-11-02: the base schema and
 nine migrations were applied; database lint passed; and the four Edge
 Functions were verified active. The frontend was connected locally and a
-signed-in avatar upload passed. A hosted staging frontend, cleanup secret and
-schedule, optional Discord secrets and schedule, and broader role/access
-tests are still outstanding. Nothing has been deployed to production.
+signed-in avatar upload passed. The staging cleanup secret and hourly schedule
+are configured and the worker returned HTTP 200 in a manual test. A Vercel
+Preview with Preview-scoped staging Supabase variables is deployed, and the
+user confirmed they can sign in. The optional Discord secrets and schedule,
+administrator and database-level role/access tests, and other staging checks
+remain outstanding. Nothing has been deployed to production.
 
 Routine audit logging must remain disabled until the privacy/safeguarding and
 retention gates in this document are approved. Do not treat this guide as
@@ -565,6 +568,12 @@ Confirm in the deployed app that:
 - The staff page exposes **Security events** only to admins.
 - Ordinary users receive a useful rate-limit message rather than raw SQL
   errors.
+- The hosted Vercel Preview is connected to staging, and a staging user can
+  sign in, sees connected mode (no sample-data banner), and can update an
+  avatar. These were user-confirmed smoke tests, not completion of the broader
+  access, avatar, or privacy tests below. The public `media` bucket means
+  uploaded avatars may be publicly readable; test only with non-identifying
+  images.
 
 ## Phase 9 — Staging verification checklist
 

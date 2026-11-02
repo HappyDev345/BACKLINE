@@ -9,9 +9,13 @@ complete locally. On 2026-11-02, the base schema, all nine migrations, and
 four Edge Functions were deployed to a separate staging project and checked.
 The frontend was connected locally and a signed-in test avatar upload
 succeeded. The staging quarantine cleanup secret and hourly schedule are
-configured, and a manual worker invocation returned HTTP 200. Nothing has
-been deployed to production; a hosted staging frontend and the optional
-Discord worker remain unconfigured.
+configured, and a manual worker invocation returned HTTP 200. A Vercel
+Preview uses Preview-scoped staging settings, and the user confirmed sign-in
+works, the sample-data banner is absent, and a signed-in avatar update
+succeeded. Nothing has been deployed to production; the optional Discord
+worker and broader access/workflow checks remain outstanding. Staging avatars
+are in a public-read bucket, so only non-identifying test images should be
+used.
 
 For a detailed explanation of the implemented components, see the
 [security implementation logbook](./SECURITY-LOGGING-IMPLEMENTATION-LOGBOOK.md).

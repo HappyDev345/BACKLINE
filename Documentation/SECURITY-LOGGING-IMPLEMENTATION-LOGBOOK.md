@@ -13,9 +13,11 @@ Initial staging deployment was completed on 2026-11-02: the base schema, all
 nine migrations, and four Edge Functions are present and checked in a separate
 Supabase project. The avatar cleanup worker secret is configured in staging,
 and its hourly schedule was created and tested successfully. The Discord worker
-remains unconfigured, and no hosted frontend or production deployment has
-occurred. The frontend was connected locally and a signed-in avatar upload
-succeeded. Start with the
+remains unconfigured. A Vercel Preview configured with staging-only Supabase
+variables is deployed, and the user confirmed sign-in works. The frontend was
+also connected locally and a signed-in avatar upload succeeded. In the hosted
+Preview, the user confirmed there was no sample-data banner and a signed-in
+avatar update succeeded. No production deployment has occurred. Start with the
 [deployment runbook](./SECURITY-LOGGING-DEPLOYMENT-RUNBOOK.md) for what
 remains.
 
@@ -430,6 +432,8 @@ The following local and staging checks passed:
 | Unauthenticated function smoke tests | Passed | Avatar upload/account deletion returned 401; workers returned 503 while their required secrets are intentionally unset. |
 | Signed-in staging avatar test | Passed | A new staging test account completed an avatar upload through the frontend; aggregate Storage counts showed one public `media` object and zero quarantine objects. |
 | Staging quarantine cleanup schedule | Passed | The hourly `pg_cron` job was created. A manual `pg_net` invocation returned HTTP 200 with `inspected: 0`, `removed: 0`, and `more_pending: false`; no expired quarantine objects were waiting for deletion. |
+| Hosted Vercel Preview sign-in | Passed (user-confirmed) | Vercel Preview uses Preview-scoped staging Supabase settings; the user confirmed a staging account can sign in. This does not verify broader app behavior or access policies. |
+| Hosted Vercel Preview avatar update | Passed (user-confirmed) | The user confirmed the sample-data banner was absent and a signed-in profile avatar update succeeded in the hosted Preview. Avatar files in the public `media` bucket may be publicly readable; use only a non-identifying test image. |
 | `git diff --check` | Passed | No whitespace errors in the patch. |
 
 The PGlite test harness used minimal stand-in versions of some existing
@@ -438,9 +442,11 @@ after testing. It is useful for SQL syntax and targeted behavior but does not
 replace Supabase's Postgres version or a full policy and role-based signed-in
 application test. The staging project has had a full base schema and migration
 run, and the authenticated avatar workflow has passed. Live role-based RLS
-tests, the optional Discord worker schedule, and hosted frontend deployment
-remain outstanding. The staging quarantine cleanup schedule has been tested
-successfully.
+tests, the optional Discord worker schedule, and broader hosted Preview
+workflow checks remain outstanding. The staging quarantine cleanup schedule
+has been tested successfully. Hosted Preview sign-in and avatar update were
+confirmed by the user; broader access and privacy behavior still require
+review.
 
 An earlier local `supabase db lint --local` attempt could not connect because
 the local Supabase/Postgres service was unavailable. Staging was later
