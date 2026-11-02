@@ -89,15 +89,25 @@ These limitations make BACKLINE an interactive prototype rather than a fully val
 
 ### Considerations and research required
 
-The project has considered the following areas in its implementation and documentation:
+**Accessible text and visual design.** I need to research WCAG guidance for text contrast, readable font sizes, spacing, and communicating information without relying on colour alone. I should check BACKLINE's dark interface with a contrast checker and test browser zoom so users can read content without text clipping or overlapping.
 
-- **Audience and task needs:** The features target production opportunities, crew profiles, community posts, technical topics, and direct communication. Interviews or surveys with intended users are still needed to verify that these are the most useful priorities.
-- **Usability:** The project uses shared navigation and reusable components. Task-based tests should check whether users can find content without guidance.
-- **Accessibility:** Text readability, contrast, keyboard access, responsive navigation, form labels, and screen-reader feedback should be checked systematically. No complete accessibility audit is documented.
-- **Privacy and security:** Profiles, messages, reports, and staff functions involve sensitive information. The codebase includes database access policies and restricted staff features, but a real deployment still needs configuration review and testing.
-- **Preview versus connected operation:** Sample data is useful for demonstrations, but the preview banner and documentation must make its temporary nature clear.
-- **Digital assets:** The source contains a BACKLINE logo and uses Google Fonts (DM Sans and Space Grotesk). The asset creator, permission, and applicable licences should be recorded before redistribution.
-- **Costs and hosting:** The README describes Vercel and Supabase as a possible deployment direction. Actual plan prices, usage, and any paid services must be checked at the time of use.
+**Keyboard and assistive-technology access.** I need to research how semantic HTML, labels, headings, focus indicators, and keyboard interaction support users who do not use a mouse. I should test whether the navigation, dialogs, search filters, forms, and interactive cards can be used with a keyboard and announced meaningfully by a screen reader.
+
+**Responsive layouts and different devices.** BACKLINE needs to remain understandable on both small and large screens, including when navigation moves into its compact menu. I should research responsive design guidance and test the main pages at mobile, tablet, and desktop widths to find overflow, unreadable content, or controls that are difficult to tap.
+
+**Clear navigation and user tasks.** The site is intended to help people find projects, locate crew, join discussions, and contact one another. I need to consider whether the labels and page structure make those tasks obvious, then test them with realistic scenarios and adjust confusing steps.
+
+**Forms, feedback, and errors.** Publishing a project, editing a profile, posting, and sending messages all rely on forms or actions. I need to research accessible form design and make sure fields have clear labels, required information is explained, and success, loading, empty, and error states tell users what happened and what they can do next.
+
+**Search and filtering.** Project and people discovery depends on the available search terms, roles, locations, and categories. I need to consider which filters are useful to production workers, whether the results explain when nothing matches, and test that changing or clearing filters behaves predictably.
+
+**Preview and connected modes.** The app can show temporary sample content or use Supabase for connected data, so users need to understand which mode they are using. I need to research Vite's build and deployment workflow, Vercel's current deployment settings, and Supabase's React setup so the published app uses the intended environment variables and does not misrepresent demo interactions as persistent.
+
+**Privacy and account security.** Profiles and messages can contain personal information, while staff reports require restricted access. I need to research Supabase Row Level Security and production guidance, then verify the project's database policies and deployment configuration using test accounts; the Supabase service-role key must never be exposed in frontend code.
+
+**Visual references and original design.** Other production and entertainment websites can help me research how they present opportunities, profiles, and calls to action. I should compare their hierarchy, navigation, typography, and listing layouts, then apply relevant ideas in BACKLINE's own style rather than copying branding or artwork.
+
+**Assets, permissions, and cost.** The site uses a logo, fonts, and online services, so I need to check where each asset came from, what licence applies, and whether permission is needed. I also need to check actual Vercel and Supabase usage and any domain or software charges rather than assuming a free plan or entering an unverified cost.
 
 ### Three key goals
 
@@ -107,6 +117,19 @@ The project has considered the following areas in its implementation and documen
 
 ## Research
 
+For this project, research means **online research**: reviewing comparable websites for ideas about their appearance and layout, and consulting official documentation to learn how the technologies used by BACKLINE work. It does not have to mean interviewing users. Any claims about what users prefer would still need user evidence, so this folio does not make those claims.
+
+### Online research into similar websites
+
+The public descriptions for [Backstage](https://www.backstage.com/) and [Mandy](https://www.mandy.com/) present them as entertainment-industry opportunity and networking platforms. Backstage promotes casting calls, auditions, and roles; Mandy describes opportunities across acting, voiceover, film and TV production, and theatre, as well as connecting with employers. These sites are useful references for how a service can explain its audience and main opportunity-discovery purpose.
+
+| Website | What its public description focuses on | Relevance to BACKLINE |
+|---|---|---|
+| Backstage | Finding and applying to casting calls, auditions, and roles. | Shows the value of making opportunities and the next action prominent. BACKLINE adapts the discovery idea to production crew calls and does not claim to provide a formal application workflow. |
+| Mandy | Entertainment-industry jobs across several disciplines and connecting with employers. | Supports the idea of serving multiple related production roles. BACKLINE also includes profiles and community discussion alongside listings. |
+
+This online review establishes the sites' stated purpose, but a text description alone is not enough to make reliable claims about their visual design. To complete the visual comparison, capture the pages as viewed on desktop and mobile, then annotate their navigation, page hierarchy, colour, typography, imagery, cards, and search controls. Record which ideas inform BACKLINE and which are not adopted. Do not copy another site's branding or distinctive artwork.
+
 ### Research completed from the project
 
 The project files document two operating modes. `src/lib/supabase.js` selects preview mode unless both the Supabase URL and public anon key are present. In preview mode, `src/lib/demoData.js` supplies sample profiles and projects, and `src/context/DemoContext.jsx` holds editable browser-memory data. The README explains that preview changes reset on refresh. In connected mode, application pages query Supabase tables and use the authenticated session.
@@ -115,25 +138,28 @@ The database schema supports profiles, projects, saved projects, posts, comments
 
 The dated changelog records design and product modifications. On 27 October 2026, version 1.0.0 established the first tracked release. On 28 October, later entries record responsive-navigation changes, improved connected-mode landing content, clearer user-facing errors, moderation/report tools, staff roles, and changes to conversation access. These entries are evidence of recorded software changes; they are not user-test results.
 
-### Technical research and findings
+### Online technical research and findings
 
 | Topic | Finding relevant to BACKLINE | Design decision |
 |---|---|---|
-| React | The official React learning material explains components, rendering data and lists, responding to events, and sharing data. These patterns suit a multi-page interface with repeated cards and interactive controls. | Use React pages and reusable components rather than duplicating the full interface for every route. |
-| Vite | The Vite guide describes a development server and a build command for production assets. The repository uses Vite scripts for `dev` and `build`. | Use Vite for local iteration and producing a deployable frontend bundle. |
-| Supabase | The official getting-started documentation provides a React quickstart and describes connecting browser applications to Supabase services. The project README documents its configuration and schema setup. | Use Supabase as an optional backend so the frontend can run in sample-data preview mode as well as a connected mode. |
-| Database access | The project schema enables row-level security, and connected pages use the Supabase client. | Keep data access policies in the database and use the browser's public anon key, not a service-role key. |
+| React | The React Quick Start explains reusable components, displaying data, responding to events, and sharing data. These concepts apply to BACKLINE's pages, cards, filters, and interactive controls. | Use reusable React page and interface components. |
+| Vite | The Vite guide describes a development server and a production build. Its static deployment guide says `npm run build` creates the `dist` output by default, which can be deployed to a hosting provider; `vite preview` is for local preview, not production hosting. BACKLINE's `package.json` defines `dev`, `build`, and `preview` scripts. | Use Vite for local development and production builds; do not treat the preview server as production hosting. |
+| Vercel | BACKLINE's README identifies Vercel as the intended frontend host, but an official Vercel deployment guide was not verified for this folio. | Use Vercel as the hosting direction in the project; verify the current Vercel build, output-directory, environment-variable, and route-rewrite instructions before describing a deployment as complete. |
+| Supabase with React | Supabase's React quickstart describes creating a project, setting up a database, connecting a React app, and using Row Level Security (RLS). BACKLINE's README and schema provide the project's actual environment-variable and schema setup. | Use Supabase as the optional connected backend, keep database access policies in RLS, and keep service-role credentials out of frontend code. |
+| Supabase production readiness | The production checklist recommends reviewing RLS policies and security, performance, and availability before making an app public. | Treat connected-mode implementation as a prototype until the deployed configuration and access policies have been checked. |
 
 ### Research still required
 
-No primary research record or competitor comparison was found in the project documentation. To strengthen the design rationale, the next research should:
+The next online research and evidence to add are:
 
-1. Interview or survey intended users about how they currently find crew, advertise production work, and share technical knowledge.
-2. Compare relevant job boards, portfolio directories, and discussion platforms using the same criteria: audience, discovery tools, profile information, communication features, and limitations.
-3. Test the prototype with representative users and record the tasks, outcomes, and changes.
-4. Check accessibility using keyboard-only navigation, browser zoom, a contrast checker, and at least one screen-reader workflow.
+1. Capture Backstage, Mandy, and any other relevant production websites at desktop and mobile widths. Annotate visual hierarchy, navigation, typography, colour, imagery, cards, and search/filter patterns, then explain which ideas informed BACKLINE.
+2. Read the current Vercel deployment documentation and record the exact build command, output directory, environment-variable configuration, and any routing settings relevant to this Vite application.
+3. Use official Vite documentation to record the local development, build, preview, and deployment workflow used for the final project.
+4. Use official Supabase documentation to record how the project is configured, how its schema and migrations are applied, how RLS controls access, and which keys may safely be used in a browser.
+5. Test the prototype's key tasks and record observed issues and changes. This is evaluation evidence, separate from online research into other sites and technologies.
+6. If the design makes claims about audience preferences, collect direct user feedback and record the method and findings rather than treating website examples as proof of user needs.
 
-Findings from this research should be added with the date, method, participant count (where applicable), source, and the design decision they influenced. Do not describe a proposed interview or test as if it has already occurred.
+For each online source, record its title, organisation, URL, access date, useful finding, and how the finding affected BACKLINE. For visual comparisons, include your own dated screenshots or annotated sketches and use only material you have permission to reproduce.
 
 ## Selection and Justification of Materials, Components, Processes and Other Resources
 
@@ -376,7 +402,12 @@ The next improvements should be chosen using user feedback. Based on documented 
 
 - React, “Quick Start,” <https://react.dev/learn>. Accessed 29 October 2026.
 - Vite, “Getting Started,” <https://vite.dev/guide/>. Accessed 29 October 2026.
-- Supabase, “Getting Started,” <https://supabase.com/docs/guides/getting-started>. Accessed 29 October 2026.
+- Vite, “Deploying a Static Site,” <https://vite.dev/guide/static-deploy.html>. Accessed 30 October 2026.
+- Supabase, “Use Supabase with React,” <https://supabase.com/docs/guides/getting-started/quickstarts/reactjs>. Accessed 30 October 2026.
+- Supabase, “Production Checklist,” <https://supabase.com/docs/guides/deployment/going-into-prod>. Accessed 30 October 2026.
+- Backstage, homepage, <https://www.backstage.com/>. Accessed 30 October 2026.
+- Mandy, homepage, <https://www.mandy.com/>. Accessed 30 October 2026.
+- Vercel deployment documentation: [Add the exact official guide reviewed and access date after confirming the current deployment settings for this project.]
 
 ### Research still to cite
 
