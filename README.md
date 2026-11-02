@@ -6,10 +6,10 @@ connected account and data flows.
 
 ## Versioning
 
-The current release is listed in `package.json`. Record notable changes in
-`CHANGELOG.md` under the matching version. Use Semantic Versioning:
-increment the major number for incompatible changes, minor for new features,
-and patch for fixes.
+The current release is listed in `package.json` and `package-lock.json`.
+Record notable changes in [`Documentation/CHANGELOG.md`](Documentation/CHANGELOG.md)
+under the matching version. Use Semantic Versioning: increment the major
+number for incompatible changes, minor for new features, and patch for fixes.
 
 ## Run the prototype
 
@@ -129,6 +129,99 @@ inaccessible while their `created_by` field is null. Review their memberships
 in the development project before restoring access by setting a trusted
 creator; do not make old conversations visible before checking every member.
 
+### Security event logging, avatars, and alerts
+
+The security logging and upload migrations are
+`20261102100000_security_event_pipeline.sql`,
+`20261102110000_avatar_quarantine.sql`, and
+`20261102120000_security_alert_outbox.sql`. Apply them in timestamp order
+after the earlier migrations. In a separate Supabase project, deploy the
+`avatar-upload` function before applying the avatar policy migration:
+
+```bash
+supabase functions deploy avatar-upload
+```
+
+Apply the three migrations, deploy the other workers, then deploy the
+frontend so avatar uploads use the checked server-side path:
+
+```bash
+supabase functions deploy discord-security-alerts --no-verify-jwt
+supabase functions deploy cleanup-avatar-quarantine --no-verify-jwt
+supabase functions deploy delete-account
+```
+
+As of 2 November 2026, the base schema, all nine migrations, and four
+functions have been deployed and checked in a separate staging project. The
+frontend has been connected locally and a signed-in staging avatar upload
+passed, but no hosted frontend has been deployed. Worker secrets/schedules
+are not configured. Nothing has been deployed to production. For the
+PowerShell CLI setup, fresh-project bootstrap, staging checks, and safe
+production sequence, follow the
+[security deployment runbook](Documentation/SECURITY-LOGGING-DEPLOYMENT-RUNBOOK.md).
+
+The avatar path accepts JPEG, PNG, and WebP files up to 5 MB, checks their
+signature and dimensions, decodes and re-encodes them as PNG, and only then
+publishes them to the public `media` bucket. Unprocessed bytes use the private
+`avatar-quarantine` bucket. Direct authenticated uploads and overwrites in
+`media` are disabled by the migration. The server allows at most 10 upload
+attempts per account per hour. Store an `AVATAR_CLEANUP_SECRET` as an Edge
+Function secret and schedule `cleanup-avatar-quarantine` with the
+`x-avatar-cleanup-secret` header; it removes private objects older than one
+hour. Each invocation processes at most 1,000 expired objects and returns
+`more_pending`; run it again promptly if more work remains. The schedule is
+not created automatically.
+
+The migration adds server-generated events for account creation/deletion,
+reports, moderation, role and restriction changes, private-message evidence
+views, and message submissions. Audit reads are limited to admins through the
+staff workspace's **Security events** tab. The audit table is append-only for
+ordinary app roles, but not immutable to Supabase project operators. A
+server-side 30-messages-per-minute limit and a repeated-message signal are
+also enabled; the signal does not copy message text or automatically restrict
+an account.
+
+Routine audit persistence is **disabled by default** because the event
+retention period and audience/privacy review still need approval. Keep it
+disabled until those decisions are documented. After approval, an operator
+can enable it from the Supabase SQL Editor:
+
+```sql
+update security.configuration
+set audit_enabled = true
+where singleton = true;
+```
+
+Do not collect source IPs, device identifiers, passwords, tokens, raw request
+bodies, uploaded bytes, private-message bodies, or original filenames in the
+event table. Sign-in success/failure and password-reset events are not
+currently written to BACKLINE; use the trusted Supabase Auth platform logs
+until an app-side source is verified.
+
+Discord delivery is optional and remains unconfigured by default. Only after
+approving the private channel, membership, response owner, and alert policy,
+store `DISCORD_SECURITY_WEBHOOK_URL` and a separate random
+`SECURITY_WORKER_SECRET` as Edge Function secrets (never as `VITE_*` values).
+Set them with the Supabase secrets manager. The scheduled worker endpoints
+disable platform JWT verification and require their distinct secret header on
+every POST. Schedule `discord-security-alerts` to send POST requests with the
+`x-security-worker-secret` header. The worker sends only allowlisted event
+metadata, disables Discord mentions, retries transient failures, and records
+delivery/dead-letter status. Missing Discord configuration leaves queued
+alerts pending and does not block application actions.
+
+Do not enable routine production audit logging before approving retention.
+The retention policy for case evidence and quarantined objects must also be
+reviewed before production; the one-hour quarantine cleanup is a conservative
+implementation default, not a substitute for that review. Validate migrations,
+functions, access boundaries, and outage behavior in a separate Supabase
+project before production rollout.
+
+For a detailed explanation of the implementation, see the
+[security implementation logbook](Documentation/SECURITY-LOGGING-IMPLEMENTATION-LOGBOOK.md).
+For the staged deployment sequence and verification checklist, see the
+[security deployment runbook](Documentation/SECURITY-LOGGING-DEPLOYMENT-RUNBOOK.md).
+
 Before production, verify these cases in a separate Supabase project:
 
 - Ordinary users cannot grant roles, change badges, write moderation actions,
@@ -167,8 +260,10 @@ get the same rule from `supabase/schema.sql`.
 
 Account deletion is permanent: it removes the authenticated user, the profile
 and records linked through the schema's cascading foreign keys, plus uploaded
-media stored under that user's ID in the `media` bucket. The deletion endpoint
-is a Supabase Edge Function; deploy it to the same project as the frontend:
+media stored under that user's ID in the `media` bucket and temporary avatar
+objects in `avatar-quarantine` (after applying the security migration). The
+deletion endpoint is a Supabase Edge Function; deploy it to the same project
+as the frontend:
 
 ```bash
 supabase functions deploy delete-account

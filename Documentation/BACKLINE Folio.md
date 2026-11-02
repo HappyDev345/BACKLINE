@@ -269,6 +269,7 @@ The table below reports only dated milestones supported by the repository's chan
 | 28 Oct 2026 | Version 1.1.0 and 1.1.1 recorded error-feedback, preview-content, connected landing-page, and follow-state changes. | `Documentation/CHANGELOG.md`, versions 1.1.0–1.1.1. |
 | 28 Oct 2026 | Version 1.2.0 introduced staff roles, reporting, moderation, and stricter conversation membership handling. | `Documentation/CHANGELOG.md`, version 1.2.0. |
 | 28 Oct 2026 | Versions 1.2.1–1.2.10 recorded responsive navigation, messaging, privacy, moderation, and setup refinements. | `Documentation/CHANGELOG.md`, versions 1.2.1–1.2.10. |
+| 2 Nov 2026 | Version 1.4.0 recorded the security event pipeline, protected avatar processing, optional alerting, and their deployment/privacy gates. | `Documentation/CHANGELOG.md`, version 1.4.0; security implementation logbook and deployment runbook. |
 | Before submission | Run the final build, test the core user tasks, complete the cost/time records, and prepare evidence. | To be completed and dated by the project author. |
 
 **Planned versus actual hours:** not recorded in the repository. Add hours from a calendar, class log, or other reliable record rather than estimating them retrospectively.
@@ -392,6 +393,8 @@ The next improvements should be chosen using user feedback. Based on documented 
 - [Project README](../README.md) — setup, preview/connected modes, deployment direction, and security notes.
 - [Current project status](./current%20status.md) — application structure, feature scope, data modes, and known limitations.
 - [Project changelog](./CHANGELOG.md) — dated feature and modification record.
+- [Security implementation logbook](./SECURITY-LOGGING-IMPLEMENTATION-LOGBOOK.md) — detailed account of the logging, upload, moderation-signal, and alert implementation.
+- [Security deployment runbook](./SECURITY-LOGGING-DEPLOYMENT-RUNBOOK.md) — staged deployment and verification instructions.
 - [Application routes](../src/App.jsx) — routes and shared application structure.
 - [Supabase client configuration](../src/lib/supabase.js) — preview versus connected mode selection.
 - [Demo data](../src/lib/demoData.js) — sample profiles and project records.

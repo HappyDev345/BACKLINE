@@ -41,40 +41,42 @@ Deno.serve(async (request: Request) => {
     auth: { autoRefreshToken: false, persistSession: false },
   })
 
-  const bucket = adminClient.storage.from('media')
-  const pendingFolders = [user.id]
-  const objectPaths: string[] = []
+  for (const bucketName of ['media', 'avatar-quarantine']) {
+    const bucket = adminClient.storage.from(bucketName)
+    const pendingFolders = [user.id]
+    const objectPaths: string[] = []
 
-  while (pendingFolders.length > 0) {
-    const folder = pendingFolders.pop()!
-    let offset = 0
-    while (true) {
-      const { data: items, error: listError } = await bucket.list(folder, {
-        limit: 100,
-        offset,
-        sortBy: { column: 'name', order: 'asc' },
-      })
-      if (listError) {
-        console.error('Failed to list account media before deletion:', listError.message)
+    while (pendingFolders.length > 0) {
+      const folder = pendingFolders.pop()!
+      let offset = 0
+      while (true) {
+        const { data: items, error: listError } = await bucket.list(folder, {
+          limit: 100,
+          offset,
+          sortBy: { column: 'name', order: 'asc' },
+        })
+        if (listError) {
+          console.error('Failed to list account media before deletion.')
+          return jsonResponse(500, { error: 'Could not remove uploaded media. Your account was not deleted.' })
+        }
+        if (!items?.length) break
+
+        for (const item of items) {
+          const path = `${folder}/${item.name}`
+          if (item.id === null) pendingFolders.push(path)
+          else objectPaths.push(path)
+        }
+        if (items.length < 100) break
+        offset += items.length
+      }
+    }
+
+    for (let start = 0; start < objectPaths.length; start += 100) {
+      const { error: removeError } = await bucket.remove(objectPaths.slice(start, start + 100))
+      if (removeError) {
+        console.error('Failed to remove account media before deletion.')
         return jsonResponse(500, { error: 'Could not remove uploaded media. Your account was not deleted.' })
       }
-      if (!items?.length) break
-
-      for (const item of items) {
-        const path = `${folder}/${item.name}`
-        if (item.id === null) pendingFolders.push(path)
-        else objectPaths.push(path)
-      }
-      if (items.length < 100) break
-      offset += items.length
-    }
-  }
-
-  for (let start = 0; start < objectPaths.length; start += 100) {
-    const { error: removeError } = await bucket.remove(objectPaths.slice(start, start + 100))
-    if (removeError) {
-      console.error('Failed to remove account media before deletion:', removeError.message)
-      return jsonResponse(500, { error: 'Could not remove uploaded media. Your account was not deleted.' })
     }
   }
 

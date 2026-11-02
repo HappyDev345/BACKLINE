@@ -283,10 +283,20 @@ export default function ProfilePage({ promptSignIn }) {
               </div>
               <div className="field">
                 <label htmlFor="pf-avatar">Avatar image</label>
-                <input id="pf-avatar" className="input" type="file" accept="image/*"
+                <input id="pf-avatar" className="input" type="file" accept="image/jpeg,image/png,image/webp"
                   onChange={async e => {
                     const file = e.target.files[0]
                     if (!file) return
+                    e.target.value = ''
+                    setError('')
+                    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+                      setError('Choose a JPEG, PNG, or WebP image.')
+                      return
+                    }
+                    if (file.size > 5 * 1024 * 1024) {
+                      setError('Choose an image smaller than 5 MB.')
+                      return
+                    }
                     if (isDemoMode) {
                       const avatar_url = URL.createObjectURL(file)
                       const updatedProfile = { ...target, avatar_url }
@@ -297,12 +307,11 @@ export default function ProfilePage({ promptSignIn }) {
                     }
                     setBusy(true); setError('')
                     try {
-                      const path = session.user.id + '/' + Date.now() + '-' + file.name
-                      const { error: upErr } = await supabase.storage.from('media').upload(path, file)
-                      if (upErr) throw upErr
-                      const { data } = supabase.storage.from('media').getPublicUrl(path)
-                      const { error: updateError } = await supabase.from('profiles').update({ avatar_url: data.publicUrl }).eq('id', session.user.id)
-                      if (updateError) throw updateError
+                      const { error: uploadError } = await supabase.functions.invoke('avatar-upload', {
+                        body: file,
+                        headers: { 'Content-Type': file.type },
+                      })
+                      if (uploadError) throw uploadError
                       await refreshProfile()
                       load()
                     } catch (uploadError) {
@@ -311,7 +320,7 @@ export default function ProfilePage({ promptSignIn }) {
                       setBusy(false)
                     }
                   }} />
-                <span className="hint">Uploads to the public "media" storage bucket.</span>
+                <span className="hint">JPEG, PNG, or WebP images up to 5 MB are checked and re-encoded before publication.</span>
               </div>
               {error && <p className="error-text" role="alert">{error}</p>}
               <div className="modal-actions">

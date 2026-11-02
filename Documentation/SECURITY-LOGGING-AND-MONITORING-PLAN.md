@@ -2,11 +2,65 @@
 
 ## Purpose and status
 
-This document captures a proposed, detailed plan for improving BACKLINE's
+This document records the design and implementation status for BACKLINE's
 security event logging, upload safety, suspicious-content handling, evidence
-preservation, and optional Discord alerts. It is a planning document, not a
-description of functionality that has already been implemented. No application
-code or database changes are made by this document.
+preservation, and optional Discord alerts. The repository implementation is
+complete locally. On 2026-11-02, the base schema, all nine migrations, and
+four Edge Functions were deployed to a separate staging project and checked.
+The frontend was connected locally and a signed-in test avatar upload
+succeeded. The staging quarantine cleanup secret and hourly schedule are
+configured, and a manual worker invocation returned HTTP 200. Nothing has
+been deployed to production; a hosted staging frontend and the optional
+Discord worker remain unconfigured.
+
+For a detailed explanation of the implemented components, see the
+[security implementation logbook](./SECURITY-LOGGING-IMPLEMENTATION-LOGBOOK.md).
+For staging and production rollout steps, see the
+[security deployment runbook](./SECURITY-LOGGING-DEPLOYMENT-RUNBOOK.md).
+
+### Implementation status
+
+The repository now includes migrations and Edge Functions for a disabled-by-
+default audit event store, report/moderation/auth-account event capture,
+reported-message evidence access auditing, message rate limits and repeated-
+message signals, private avatar quarantine and image re-encoding, and an
+optional Discord alert outbox/worker. The staff workspace includes an
+admin-only recent-event view.
+
+The following limitations and release gates remain:
+
+- Staging has the base schema and all migrations applied in timestamp order;
+  `supabase db lint --linked` reports no schema errors. Repeat the documented
+  process for any other environment, and complete the remaining staging checks
+  before production rollout.
+- `security.configuration.audit_enabled` defaults to `false`. Keep it disabled
+  until the audience/privacy review and routine-event retention period have
+  been approved. The server-side message rate limit is active independently.
+- Authentication account creation/deletion is captured by database triggers;
+  sign-in success/failure, password reset, and other Auth events are not
+  currently written to BACKLINE's event table. Use verified Supabase Auth
+  platform logs for those events until a supported trusted integration is
+  confirmed.
+- Avatar processing accepts JPEG, PNG, and WebP up to 5 MB, checks format and
+  dimensions, and re-encodes before publication. It does not use a third-party
+  malware scanner. The rate defaults to 10 attempts per account per hour and
+  30 messages per account per minute; tune these values against actual traffic.
+- The staging `cleanup-avatar-quarantine` worker has a Vault-backed secret and
+  an hourly `pg_cron` schedule. A manual `pg_net` invocation returned HTTP
+  200 with zero expired objects and no remaining backlog. Configure and test
+  its schedule separately in production. Schedule `discord-security-alerts`
+  only if Discord delivery is approved. Cleanup is bounded to 1,000 objects
+  per invocation and returns `more_pending` when another run is needed. These
+  schedules are operator-managed and are not provisioned by repository
+  migrations.
+- Discord delivery is not configured by default. Keep the webhook secret
+  unset until a private channel, membership, response owner, and alert policy
+  have been approved.
+- The database audit table is append-only for ordinary application roles, not
+  immutable against privileged Supabase operators. Retention/deletion,
+  incident ownership, and production verification remain outstanding.
+- Source IP addresses and device identifiers are not collected in BACKLINE's
+  event records. Do not add them without a documented need and privacy review.
 
 The goals are to:
 
@@ -22,7 +76,11 @@ Logging supports security; it is not itself a blocking or scanning control.
 Validation, access control, quarantine, rate limiting, and moderation are
 separate measures and must be designed alongside the logs.
 
-## Current BACKLINE context
+## Pre-implementation baseline (verify against deployed project)
+
+The following describes the repository/deployment baseline before this
+implementation. Repository code changes do not update a Supabase project
+until its migrations and Edge Functions are deployed.
 
 BACKLINE is a React/Vite application using Supabase for connected Auth,
 Postgres, Storage, and some Realtime features. It has a preview mode as well as
@@ -138,16 +196,13 @@ semantics change.
 - **Event type and status code are not the same thing.** An event type explains
   what happened. An HTTP status code describes an HTTP response. A scanner
   outcome or moderation decision should use a separate normalized result.
-- **Source and destination IPs:** source IP may be useful for rate-limit or
-  attack investigations, but is personal data in many contexts. A raw
-  destination IP is usually low-value for a cloud-hosted app because addresses
-  can change; record the logical destination/service instead. Only retain an
-  actual destination IP if a concrete incident-response requirement justifies
-  it.
-- **Device identifier:** use an opaque random identifier only if the product
-  needs cross-request correlation. Prefer session-scoped or rotating IDs over
-  long-lived tracking IDs. Do not derive a device fingerprint from browser
-  properties.
+- **Source and destination IPs:** BACKLINE's event records do not collect
+  these. Record the logical destination/service instead of a raw destination
+  IP. Reconsider IP collection only if a concrete incident-response need and
+  privacy review justify it.
+- **Device identifier:** BACKLINE does not collect device identifiers or
+  derive browser fingerprints. Reconsider only if a documented need and
+  privacy review justify first-party correlation.
 - **Session/transaction IDs:** use non-secret correlation identifiers.
   Never log cookies, bearer tokens, refresh tokens, passwords, authorization
   headers, or session secrets.
@@ -283,17 +338,19 @@ principle of scoped review; preserve that boundary.
 Choose different retention periods for:
 
 - Routine security event metadata.
-- Source IPs and device identifiers, if collected.
 - Open report evidence and closed-case evidence.
 - Scanner results and quarantine objects.
 - Discord notifications.
 
 Retention must be based on a stated security and operational purpose, not
 indefinite availability. Define deletion, archival, and legal-hold procedures.
-The retention period is an open product/privacy decision and should account
-for whether minors may use BACKLINE. Until that is resolved, minimize personal
-data, avoid unnecessary device tracking, and do not send private content to
-Discord.
+Routine-event and case-evidence retention periods require approval before
+production collection. The audience and minor-safeguarding status also require
+review; until then, keep routine audit logging disabled, minimize personal
+data, and do not send private content to Discord. Quarantined uploads are
+deleted after one hour by the scheduled cleanup worker, but this operational
+default still requires production review. The worker processes at most 1,000
+expired objects per invocation; rerun it promptly when `more_pending` is true.
 
 ## Unsafe upload prevention
 
@@ -488,21 +545,24 @@ admins with alerts.
 
 ### Phase 0 — Decisions and threat model
 
-- Confirm whether minors may use BACKLINE and involve the appropriate privacy
-  and safeguarding review.
-- Define the event catalog, severity scale, access roles, evidence boundaries,
-  retention periods, and incident ownership.
-- Decide initial allowed upload types and limits.
-- Decide whether message checks are limited to server-side heuristics and
-  reports, and whether any external content-analysis provider is in scope.
-- Select the first deployment environment and verify Supabase plan/platform
-  capabilities, Edge Function limits, Storage behavior, and secret management.
+Implementation decisions recorded:
 
-**Exit criteria:** documented privacy boundaries and agreed behavior for
-unresolved scans, high-risk message signals, audit-write failures, and
-Discord outages.
+- Accept JPEG, PNG, and WebP avatars up to 5 MB; preflight dimensions, decode,
+  and re-encode server-side. No third-party malware scanner is in scope.
+- Use server-side message rate limiting and repeated-message heuristics only;
+  risk signals do not automatically restrict accounts.
+- Keep audit-event reads admin-only, omit source IPs and device identifiers,
+  and keep routine audit persistence disabled until privacy and retention
+  approvals are recorded.
+- Fail high-impact database actions if audit persistence fails while audit
+  logging is enabled. Discord delivery remains optional and non-blocking.
 
-### Phase 1 — Trusted audit-event foundation
+**Production gates:** audience/minor-safeguarding review, retention and
+deletion rules, incident ownership, and Supabase deployment/access validation
+remain unresolved. Complete these reviews before enabling routine audit
+collection or production rollout.
+
+### Phase 1 — Trusted audit-event foundation (implemented locally)
 
 - Design a versioned event schema and stable event-type catalog.
 - Implement server-side event writers and narrow database permissions.
@@ -518,7 +578,7 @@ Discord outages.
 **Exit criteria:** representative events are correctly attributed, correlated,
 restricted, timestamped, and cannot be forged or edited by a normal user.
 
-### Phase 2 — Upload quarantine and validation
+### Phase 2 — Upload quarantine and validation (implemented locally)
 
 - Change the upload path so untrusted files enter private quarantine.
 - Enforce type, size, ownership, quota, and rate limits on trusted boundaries.
@@ -533,7 +593,7 @@ restricted, timestamped, and cannot be forged or edited by a normal user.
 after checks and disallowed, malformed, oversized, or mismatched files stay
 private or are rejected.
 
-### Phase 3 — Reports, evidence, and message-risk signals
+### Phase 3 — Reports, evidence, and message-risk signals (implemented locally)
 
 - Preserve reported evidence in a separate restricted workflow with an
   explicit retention rule.
@@ -547,7 +607,7 @@ private or are rejected.
 access to private conversations; event logs do not contain duplicate message
 bodies.
 
-### Phase 4 — Discord notifications
+### Phase 4 — Discord notifications (implemented locally; optional)
 
 - Create a private Discord channel and decide its membership and moderation.
 - Use a server-side webhook secret for one-way alerts, or a bot only if
@@ -630,29 +690,22 @@ Supabase project:
 - Staff can use the BACKLINE admin view to investigate without relying on the
   Discord message as evidence.
 
-## Decisions to revisit before implementation
+## Decisions and production gates
 
-The following are intentionally open rather than assumed:
+The implementation choices above are recorded. The following still require
+operator or privacy review before production:
 
-1. Whether minors use or may use BACKLINE, and any resulting privacy or
-   safeguarding requirements.
-2. Which upload formats are supported first, and exact file/image limits.
-3. Whether a malware scanning provider is required for the initial image-only
-   scope.
-4. What message-risk signals are acceptable, how automated results affect
-   users, and whether third-party processing is allowed.
-5. How long audit metadata, IPs/device IDs, case evidence, and quarantined
-   objects are retained.
-6. Whether source IP is stored in full, truncated, or represented in a
-   privacy-preserving form.
-7. Which staff roles can see the security dashboard, audit events, and case
-   evidence.
-8. Which alert types go to Discord, who is allowed in the channel, and whether
-   a one-way webhook is sufficient.
-9. What action to take if audit persistence, scanning, or alert delivery is
-   unavailable.
-10. Who owns security alert response, incident escalation, and periodic
-    access/retention reviews.
+- Confirm whether minors may use BACKLINE and complete any required privacy
+  and safeguarding review.
+- Approve retention and deletion periods for routine audit events and
+  case-related evidence; document any legal-hold process.
+- Assign incident response ownership, escalation paths, and periodic access
+  and retention reviews.
+- Review the private Discord channel, membership, response owner, and alert
+  policy before configuring its webhook.
+- Apply migrations, deploy functions, configure secrets and schedules, and
+  validate RLS, fail-closed behavior, cleanup, and alert outages in a separate
+  Supabase project.
 
 ## Final principle
 

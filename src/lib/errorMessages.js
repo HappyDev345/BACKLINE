@@ -18,6 +18,9 @@ export function getUserFacingError(error, fallback) {
   if (code === '23505' && message.includes('reports_one_open_per_reporter_target')) {
     return 'You already have an open report for this item.'
   }
+  if (code === 'p0001' && message.includes('sending messages too quickly')) {
+    return 'You’re sending messages too quickly. Please wait a moment before trying again.'
+  }
   if (error instanceof TypeError || message.includes('failed to fetch') || message.includes('network')) {
     return 'We couldn’t connect right now. Check your connection and try again.'
   }

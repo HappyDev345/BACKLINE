@@ -3,6 +3,18 @@
 Notable changes to BACKLINE are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [1.4.0] - 2026-11-02
+
+- Added a restricted, disabled-by-default security audit pipeline, admin-only
+  event review, report and moderation event capture, and message rate/risk
+  controls.
+- Replaced direct avatar publication with private quarantine, server-side
+  JPEG/PNG/WebP validation and PNG re-encoding, upload quotas, and cleanup.
+- Added an optional privacy-minimal Discord alert outbox and worker.
+- Added a detailed implementation logbook and deployment runbook. Deployment
+  and production privacy/retention review are still required; routine audit
+  logging remains disabled until its approval gates are met.
+
 ## [1.3.0] - 2026-10-29
 
 - Added a dedicated `/saved` page where members can revisit and unsave saved

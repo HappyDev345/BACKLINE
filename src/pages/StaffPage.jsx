@@ -198,6 +198,7 @@ export default function StaffPage() {
   const [status, setStatus] = useState('open')
   const [reports, setReports] = useState([])
   const [actions, setActions] = useState([])
+  const [securityEvents, setSecurityEvents] = useState([])
   const [accounts, setAccounts] = useState([])
   const [accountQuery, setAccountQuery] = useState('')
   const [loadError, setLoadError] = useState('')
@@ -229,6 +230,19 @@ export default function StaffPage() {
     setActions(data || [])
   }
 
+  async function loadSecurityEvents() {
+    setLoadError('')
+    const { data, error } = await supabase.from('security_audit_events')
+      .select('event_id, event_type, outcome, severity, reason_code, actor_user_id, target_type, target_id, occurred_at')
+      .order('occurred_at', { ascending: false })
+      .limit(100)
+    if (error) {
+      setLoadError(getUserFacingError(error, 'We couldn’t load security events.'))
+      return
+    }
+    setSecurityEvents(data || [])
+  }
+
   async function loadAccounts(search = '') {
     setLoadError('')
     try {
@@ -250,6 +264,7 @@ export default function StaffPage() {
     if (section === 'reports') loadReports()
     if (section === 'history') loadActions()
     if (section === 'accounts' && isAdmin) loadAccounts(accountQuery)
+    if (section === 'security' && isAdmin) loadSecurityEvents()
   }, [section, status, canStaff, isAdmin, accountQuery])
 
   async function accountAction(rpc, params) {
@@ -320,6 +335,7 @@ export default function StaffPage() {
       <div className="tabs staff-tabs">
         <button className={'tab' + (section === 'reports' ? ' active' : '')} onClick={() => setSection('reports')}>Reports</button>
         <button className={'tab' + (section === 'history' ? ' active' : '')} onClick={() => setSection('history')}>Action history</button>
+        {isAdmin && <button className={'tab' + (section === 'security' ? ' active' : '')} onClick={() => setSection('security')}>Security events</button>}
         {isAdmin && <button className={'tab' + (section === 'accounts' ? ' active' : '')} onClick={() => setSection('accounts')}>Accounts & roles</button>}
       </div>
       {loadError && <p className="error-text" role="alert">{loadError}</p>}
@@ -347,6 +363,34 @@ export default function StaffPage() {
             </div>
           ))}
           {!loadError && actions.length === 0 && <p className="muted">No staff actions recorded yet.</p>}
+        </div>
+      )}
+
+      {section === 'security' && isAdmin && (
+        <div className="staff-card">
+          <h2>Recent security events</h2>
+          {securityEvents.map((event) => (
+            <div className="staff-history-row" key={event.event_id}>
+              <div>
+                <b>{event.event_type}</b>
+                <span className="badge badge-type">{event.severity}</span>
+                <span className="badge badge-type">{event.outcome}</span>
+              </div>
+              <div className="muted">
+                {timeAgo(event.occurred_at)}
+                {event.reason_code && ` · ${event.reason_code}`}
+              </div>
+              {(event.actor_user_id || event.target_type) && (
+                <div className="hint">
+                  {event.actor_user_id && `Actor ${event.actor_user_id}`}
+                  {event.actor_user_id && event.target_type && ' · '}
+                  {event.target_type && `Target ${event.target_type}${event.target_id ? ` ${event.target_id}` : ''}`}
+                </div>
+              )}
+              <div className="hint">Event ID: {event.event_id}</div>
+            </div>
+          ))}
+          {!loadError && securityEvents.length === 0 && <p className="muted">No security events have been recorded yet. Audit logging may be disabled pending privacy and retention review.</p>}
         </div>
       )}
 
