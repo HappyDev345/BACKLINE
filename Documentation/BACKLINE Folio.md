@@ -165,23 +165,23 @@ For each online source, record its title, organisation, URL, access date, useful
 
 BACKLINE is a digital product, so its materials are software, online services, digital assets, and development equipment.
 
-| Selection | Use in BACKLINE | Justification |
+| Options | Selection | Justification |
 |---|---|---|
-| React | Pages and reusable interface components. | Supports interactive pages and shared elements such as cards, avatars, navigation, and dialogs. |
-| Vite | Local development server and production build. | The project already uses Vite scripts for development and building. |
-| JavaScript, HTML, and CSS | Application logic, page structure, and visual design. | These are the web technologies used by the existing frontend. |
-| React Router | Maps URLs to page components. | Supports separate routes for the landing page, discover, people, profiles, feed, forum, messages, notifications, settings, and other views. |
-| Supabase JavaScript client | Optional connected authentication and data operations. | Allows connected mode to use hosted account and database services without requiring a separately written API for each frontend action. |
-| Supabase Postgres and Row Level Security | Stores shared application records and controls database access. | Fits the relational links between users, projects, posts, and messages; access policies are part of the schema. |
-| Preview fixtures and DemoContext | Supplies sample records and temporary interactions. | Allows the interface to be shown without a connected Supabase project. |
-| BACKLINE logo and Google Fonts | Brand identity and typography. | Present in the application files and HTML. Their ownership/licence records should be retained with the project. |
-| Computer, code editor, Node.js, npm, and browser | Development and checking the web application. | Required by the documented Vite/npm workflow. |
+| React, Vue, or Svelte | React | React's component-based approach will support reusable interface elements, while its broad ecosystem and learning resources make it a practical choice for a multi-page interactive product. |
+| Vite, webpack, or Create React App | Vite | Vite offers a straightforward development workflow and efficient production builds, helping keep setup and iteration manageable. |
+| JavaScript, TypeScript, HTML, and CSS | JavaScript, HTML, and CSS | These widely supported web technologies are suitable for building an interactive browser-based product without adding the extra learning and setup required for TypeScript. |
+| React Router or manual URL handling | React Router | A routing library will make it easier to organise the landing, discover, people, profile, feed, forum, messaging, notifications, and settings views, and to navigate between them consistently. |
+| Supabase, Firebase, or a custom API and database | Supabase | Supabase provides hosted authentication and database services, reducing the need to design and maintain a separate backend while supporting shared, persistent data. |
+| PostgreSQL with Row Level Security, a document database, or custom access checks in an API | Supabase Postgres with Row Level Security | PostgreSQL can represent the relationships between users, projects, posts, and messages. Row Level Security can enforce data-access rules at the database, rather than relying only on the interface. |
+| Require a live backend for every demonstration, or provide sample data for preview use | Sample data for preview use alongside Supabase for connected use | Sample data will allow the product to be explored without backend setup or a network connection; connected use will support real accounts and shared, persistent data. |
+| Create a custom logo and select typography, or use the proposed BACKLINE logo and Google Fonts | BACKLINE logo and Google Fonts | A recognisable logo and legible, web-accessible typography will give the product a consistent visual identity. The assets' ownership and licence terms should be checked before use. |
+| Computer, code editor, Node.js, npm, and browser | Computer, code editor, Node.js, npm, and browser | These resources will support writing the application, running its development tools, and checking its behaviour in a browser. |
 
 ### Processes selected
 
-The project uses a staged web-development process: define the intended audience and functions, structure the pages, implement interactions, connect data modes, then build and test. The repository documents `npm run dev` and `npm run build`; no automated test script is defined in `package.json`.
+The planned process is staged: define the intended audience and functions, structure the pages, implement interactions, connect data modes, then build and test. The development workflow will include commands to run the application locally and create a production build, along with checks of the key user journeys.
 
-For connected development, the README recommends a separate Supabase project for testing, running the base schema, applying the migrations that apply to the project, and supplying local environment variables. This separation helps prevent test changes from affecting production data.
+For connected development, a separate Supabase project will be used for testing. The database schema and required migrations will be applied there, with credentials supplied through local environment variables. Keeping test and production data separate will reduce the risk of development changes affecting real users.
 
 ## Development of Ideas
 
