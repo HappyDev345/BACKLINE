@@ -12,8 +12,19 @@ Functions were verified active. The frontend was connected locally and a
 signed-in avatar upload passed. The staging cleanup secret and hourly schedule
 are configured and the worker returned HTTP 200 in a manual test. A Vercel
 Preview with Preview-scoped staging Supabase variables is deployed, and the
-user confirmed they can sign in. The optional Discord secrets and schedule,
-administrator and database-level role/access tests, and other staging checks
+user confirmed they can sign in. A private staging Discord webhook and
+separate worker secrets are configured. A synthetic `report.created` event
+was delivered successfully in a one-time manual worker run (HTTP 200); audit
+logging was confirmed off afterward. The user then created a one-minute
+staging Discord schedule; two cron runs are recorded as `succeeded`. The
+corresponding scheduled `pg_net` calls returned HTTP 200; five empty-queue
+runs reported `Processed 0 security alert(s)`. A recent outbox query found
+exactly two expected, delivered staging events: the synthetic
+`report.created` event and the `upload.rejected` event (`invalid_image`) from
+the invalid avatar test. The browser displayed rejection, but the backend
+also processed it and recorded the event while audit logging was temporarily
+on. Both events were delivered, reconciling the two-alert worker response.
+Administrator and database-level role/access tests and other staging checks
 remain outstanding. Nothing has been deployed to production.
 
 Routine audit logging must remain disabled until the privacy/safeguarding and
@@ -59,7 +70,7 @@ For current scope and outstanding design choices, read the
 |---|---|---|
 | `20261102100000_security_event_pipeline.sql` | Private audit event table, trusted writers/triggers, admin read policy, reported-message evidence audit, and message rate controls | Event persistence off; message rate limit set to 30/minute |
 | `20261102110000_avatar_quarantine.sql` | Private quarantine bucket, upload quota, service-only upload RPCs, and removal of direct media insert/update policies | Quarantine bucket private; direct browser upload policy removed |
-| `20261102120000_security_alert_outbox.sql` | Restricted event queue and claim/complete functions for optional alerts | Queue exists; no worker schedule or Discord destination is configured |
+| `20261102120000_security_alert_outbox.sql` | Restricted event queue and claim/complete functions for optional alerts | Queue exists; staging Discord webhook and worker are configured; one-minute schedule created and awaiting run-history verification |
 | `avatar-upload` | Authenticated image validation, decode/re-encode, and publication | Needs Supabase URL/anon/service role environment |
 | `cleanup-avatar-quarantine` | Removes private quarantine objects older than one hour | Requires `AVATAR_CLEANUP_SECRET` and an external schedule |
 | `discord-security-alerts` | Delivers selected outbox events | Optional; requires webhook, worker secret, and external schedule |
@@ -655,8 +666,12 @@ private conversations or production accounts.
 Skip this section when Discord is not enabled.
 
 - [ ] Verify missing or incorrect worker secret is rejected.
-- [ ] Trigger one approved alert event in staging and confirm the outbox
-      records the event exactly once.
+- [x] In staging, create one synthetic `report.created` event in a single
+      transaction, turn audit collection back off, and manually invoke the
+      worker. The worker returned HTTP 200 and reported processing two alerts;
+      the user confirmed Discord messages arrived. A later aggregate query
+      confirmed exactly two expected events, `report.created` / `discord_test`
+      and `upload.rejected` / `invalid_image`, both marked delivered.
 - [ ] Confirm the alert contains only controlled event metadata and
       `allowed_mentions` is disabled.
 - [ ] Confirm no message text, report details, note bodies, file bytes, or
@@ -667,6 +682,10 @@ Skip this section when Discord is not enabled.
       operator visibility.
 - [ ] Confirm a Discord outage does not block the underlying report,
       moderation, or account action.
+- [x] Configure a one-minute recurring staging schedule after the successful
+      manual delivery test; the user confirmed two scheduled cron runs have
+      `succeeded` status and five scheduled `pg_net` responses returned HTTP
+      200 with an empty queue.
 
 ### 9.6 Account deletion
 

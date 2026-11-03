@@ -12,10 +12,18 @@ succeeded. The staging quarantine cleanup secret and hourly schedule are
 configured, and a manual worker invocation returned HTTP 200. A Vercel
 Preview uses Preview-scoped staging settings, and the user confirmed sign-in
 works, the sample-data banner is absent, and a signed-in avatar update
-succeeded. Nothing has been deployed to production; the optional Discord
-worker and broader access/workflow checks remain outstanding. Staging avatars
-are in a public-read bucket, so only non-identifying test images should be
-used.
+succeeded. A private staging Discord webhook and worker secrets are set, and
+a synthetic alert was delivered successfully by a manual worker invocation;
+audit logging was turned off afterward. A one-minute staging Discord
+schedule has been created and verified: two cron executions succeeded and
+scheduled `pg_net` calls returned HTTP 200 with an empty queue. The manual
+test call processed two expected alerts: the synthetic report event and the
+invalid-image upload rejection. An aggregate query confirmed both were
+delivered. The browser displayed rejection, but the backend processed that
+upload while audit was temporarily enabled. Nothing has been deployed to
+production, and broader access and
+workflow checks remain outstanding. Staging avatars are in a public-read
+bucket, so only non-identifying test images should be used.
 
 For a detailed explanation of the implemented components, see the
 [security implementation logbook](./SECURITY-LOGGING-IMPLEMENTATION-LOGBOOK.md).
@@ -57,9 +65,15 @@ The following limitations and release gates remain:
   per invocation and returns `more_pending` when another run is needed. These
   schedules are operator-managed and are not provisioned by repository
   migrations.
-- Discord delivery is not configured by default. Keep the webhook secret
-  unset until a private channel, membership, response owner, and alert policy
-  have been approved.
+- Discord delivery is optional. Staging now has a dedicated private-channel
+  webhook and worker secrets, with a successful synthetic delivery test.
+  A one-minute staging schedule has been verified through successful cron
+  runs and HTTP 200 responses. The manual test's two alerts were reconciled
+  to the synthetic report and invalid-image upload rejection; both were
+  delivered.
+  Keep production credentials and schedules unset until a private channel,
+  membership, response owner, and alert policy have been approved for
+  production.
 - The database audit table is append-only for ordinary application roles, not
   immutable against privileged Supabase operators. Retention/deletion,
   incident ownership, and production verification remain outstanding.

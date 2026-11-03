@@ -12,12 +12,20 @@ It is not a deployment approval, privacy assessment, or penetration test.
 Initial staging deployment was completed on 2026-11-02: the base schema, all
 nine migrations, and four Edge Functions are present and checked in a separate
 Supabase project. The avatar cleanup worker secret is configured in staging,
-and its hourly schedule was created and tested successfully. The Discord worker
-remains unconfigured. A Vercel Preview configured with staging-only Supabase
-variables is deployed, and the user confirmed sign-in works. The frontend was
-also connected locally and a signed-in avatar upload succeeded. In the hosted
-Preview, the user confirmed there was no sample-data banner and a signed-in
-avatar update succeeded. No production deployment has occurred. Start with the
+and its hourly schedule was created and tested successfully. A private staging
+Discord webhook and separate worker secrets are configured. One synthetic
+`report.created` event was delivered to the channel by a manual worker
+invocation; audit logging was off afterward. There is no recurring Discord
+schedule yet. A one-minute staging Discord schedule has now been created; the
+user confirmed two cron runs are recorded as `succeeded`. The corresponding
+scheduled `pg_net` calls returned HTTP 200 with an empty queue. The manual
+test call processed two alerts: the intended synthetic report event and the
+rejected-image upload event. Both were later confirmed delivered. A Vercel Preview
+configured with staging-only Supabase variables is deployed, and the user
+confirmed sign-in works. The frontend was also connected locally and a
+signed-in avatar upload succeeded. In the hosted Preview, the user confirmed
+there was no sample-data banner and a signed-in avatar update succeeded. No
+production deployment has occurred. Start with the
 [deployment runbook](./SECURITY-LOGGING-DEPLOYMENT-RUNBOOK.md) for what
 remains.
 
@@ -434,6 +442,8 @@ The following local and staging checks passed:
 | Staging quarantine cleanup schedule | Passed | The hourly `pg_cron` job was created. A manual `pg_net` invocation returned HTTP 200 with `inspected: 0`, `removed: 0`, and `more_pending: false`; no expired quarantine objects were waiting for deletion. |
 | Hosted Vercel Preview sign-in | Passed (user-confirmed) | Vercel Preview uses Preview-scoped staging Supabase settings; the user confirmed a staging account can sign in. This does not verify broader app behavior or access policies. |
 | Hosted Vercel Preview avatar update | Passed (user-confirmed) | The user confirmed the sample-data banner was absent and a signed-in profile avatar update succeeded in the hosted Preview. Avatar files in the public `media` bucket may be publicly readable; use only a non-identifying test image. |
+| Discord staging delivery | Passed (user-confirmed) | A synthetic `report.created` event was written with audit temporarily enabled in one SQL transaction, audit was turned off, then a manual `pg_net` invocation returned HTTP 200. An invalid-image avatar attempt also reached the backend and recorded `upload.rejected` with reason `invalid_image` while audit was temporarily enabled, despite the browser showing a rejection. An aggregate query confirmed exactly those two expected alert events, both `delivered`; the user confirmed Discord messages arrived. |
+| Discord scheduled cron and HTTP execution | Passed (user-confirmed) | The user confirmed two rows in `cron.job_run_details` for the one-minute job, both with `succeeded` status. Five scheduled `pg_net` HTTP responses then showed status 200 and `Processed 0 security alert(s).` |
 | `git diff --check` | Passed | No whitespace errors in the patch. |
 
 The PGlite test harness used minimal stand-in versions of some existing
@@ -442,11 +452,13 @@ after testing. It is useful for SQL syntax and targeted behavior but does not
 replace Supabase's Postgres version or a full policy and role-based signed-in
 application test. The staging project has had a full base schema and migration
 run, and the authenticated avatar workflow has passed. Live role-based RLS
-tests, the optional Discord worker schedule, and broader hosted Preview
-workflow checks remain outstanding. The staging quarantine cleanup schedule
-has been tested successfully. Hosted Preview sign-in and avatar update were
-confirmed by the user; broader access and privacy behavior still require
-review.
+tests and broader hosted Preview workflow checks remain outstanding. The two
+manually processed Discord events have been reconciled and both were
+delivered. The staging
+quarantine cleanup schedule
+has been tested successfully. Hosted Preview sign-in, avatar update, and
+one-time Discord alert delivery were confirmed by the user; broader access and
+privacy behavior still require review.
 
 An earlier local `supabase db lint --local` attempt could not connect because
 the local Supabase/Postgres service was unavailable. Staging was later
@@ -470,8 +482,11 @@ verified with `supabase db lint --linked`; production remains untouched.
 7. **Scanner:** no third-party malware scanner is included. This is a
    conscious initial scope choice, not a claim that image re-encoding detects
    all harmful content.
-8. **Discord:** no webhook, schedule, private channel, or responder is
-   configured by default.
+8. **Discord:** the staging webhook and worker secrets are configured, and a
+   synthetic alert was delivered successfully. A one-minute staging schedule
+   has been created and verified through successful cron executions and HTTP
+   responses. Reconcile the two events processed by the manual test. Production
+   Discord configuration requires separate approval and credentials.
 9. **Monitoring ownership:** assign a human owner for cleanup failures,
    alert dead letters, audit-write failures, and incident escalation.
 10. **Rollback:** no down-migrations are supplied. Database changes need a
