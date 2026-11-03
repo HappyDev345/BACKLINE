@@ -3,6 +3,14 @@
 Notable changes to BACKLINE are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [1.5.0] - 2026-11-03
+
+- Expanded the audit pipeline to record project, feed/forum post, comment, and
+  authenticated client-error events without storing content or raw error text.
+- Queued recorded audit events for Discord delivery and added a 30-day audit
+  purge function. Audit persistence remains disabled by default; Auth sign-in
+  and password-reset outcomes still rely on Supabase Auth audit logs.
+
 ## [1.4.0] - 2026-11-02
 
 - Added a restricted, disabled-by-default security audit pipeline, admin-only

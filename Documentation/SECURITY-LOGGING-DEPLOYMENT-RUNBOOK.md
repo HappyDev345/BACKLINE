@@ -3,7 +3,7 @@
 ## Purpose and current status
 
 This runbook gives the intended step-by-step sequence for deploying the
-version 1.4.0 security logging, avatar upload, cleanup, and optional alert
+version 1.5.0 security logging, avatar upload, cleanup, and optional alert
 changes to a **separate Supabase project first**.
 
 Initial staging deployment was completed on 2026-11-02: the base schema and
@@ -70,7 +70,8 @@ For current scope and outstanding design choices, read the
 |---|---|---|
 | `20261102100000_security_event_pipeline.sql` | Private audit event table, trusted writers/triggers, admin read policy, reported-message evidence audit, and message rate controls | Event persistence off; message rate limit set to 30/minute |
 | `20261102110000_avatar_quarantine.sql` | Private quarantine bucket, upload quota, service-only upload RPCs, and removal of direct media insert/update policies | Quarantine bucket private; direct browser upload policy removed |
-| `20261102120000_security_alert_outbox.sql` | Restricted event queue and claim/complete functions for optional alerts | Queue exists; staging Discord webhook and worker are configured; one-minute schedule created and awaiting run-history verification |
+| `20261102120000_security_alert_outbox.sql` | Restricted event queue and claim/complete functions for optional alerts | Queue exists; the staging Discord webhook and worker are configured and manually tested |
+| `20261103210000_expand_security_event_coverage.sql` | Project/feed/forum/comment audit events, authenticated client error events, all-event Discord queueing, and 30-day log purge function | Local code only; not yet applied to staging. Audit persistence remains off by default. |
 | `avatar-upload` | Authenticated image validation, decode/re-encode, and publication | Needs Supabase URL/anon/service role environment |
 | `cleanup-avatar-quarantine` | Removes private quarantine objects older than one hour | Requires `AVATAR_CLEANUP_SECRET` and an external schedule |
 | `discord-security-alerts` | Delivers selected outbox events | Optional; requires webhook, worker secret, and external schedule |
@@ -297,7 +298,7 @@ Then preview the timestamped migrations:
 ```
 
 Read the preview carefully. For this branch it should list nine files, in
-order: the six existing migrations from October 2026 followed by the three
+order: the six existing migrations from October 2026 followed by the four
 new migrations from November 2026. If it lists anything unexpected, or
 complains about local/remote history, stop rather than guessing.
 
@@ -311,11 +312,12 @@ Read the CLI confirmation prompt and verify the project/ref and migration
 list before answering `y`. This records the migration versions in Supabase's
 migration history. Do not add `--yes` when you want the extra confirmation.
 
-The three new files are:
+The four new files are:
 
 1. `supabase/migrations/20261102100000_security_event_pipeline.sql`
 2. `supabase/migrations/20261102110000_avatar_quarantine.sql`
 3. `supabase/migrations/20261102120000_security_alert_outbox.sql`
+4. `supabase/migrations/20261103210000_expand_security_event_coverage.sql`
 
 ### 4.2 Existing project or uncertain migration history
 
@@ -360,6 +362,13 @@ Check these properties in the dashboard or through a read-only SQL query:
 - `public.security_alert_outbox` exists with RLS enabled and no normal client
   table grants.
 - The outbox trigger is attached to audit events.
+- The new content event triggers are attached to `public.projects`,
+  `public.posts`, and `public.comments`, and record no content fields.
+- The all-event outbox trigger queues every persisted audit event.
+- `public.log_client_error` is executable by authenticated users only and
+  stores a fixed operation key and sanitized error category, not raw text.
+- `security.purge_expired_security_events()` deletes audit events older than
+  30 days; configure the daily schedule only after applying the migration.
 
 Run these checks as a project operator, not by granting broader client
 permissions just to make a test query work. Then lint the linked database:
@@ -550,6 +559,29 @@ The worker uses retries and a bounded batch; repeated scheduler calls do not
 make Discord authoritative. Test delivery and outage behavior in staging
 before enabling the schedule in production.
 
+### 7.3 Audit-event retention
+
+The expanded event-coverage migration defines
+`security.purge_expired_security_events()`, which removes audit events older
+than 30 days. Deleting the parent event also removes its associated outbox
+record. This does **not** delete Discord messages already sent; Discord
+retention must be reviewed separately.
+
+After applying the migration and confirming `pg_cron` is enabled, schedule a
+daily purge in the target project:
+
+```sql
+select cron.schedule(
+  'backline-security-audit-retention',
+  '15 2 * * *',
+  $$select security.purge_expired_security_events();$$
+);
+```
+
+Verify the job in `cron.job` and inspect `cron.job_run_details` after its first
+run. Do not configure production retention until the approved policy and any
+legal-hold requirements are recorded.
+
 ## Phase 8 — Configure and deploy the frontend
 
 Set the frontend host's environment variables to the same staging project:
@@ -734,19 +766,21 @@ After staging passes and approvals are recorded:
 1. Confirm production backup/recovery point and verify the exact project ref.
 2. Deploy `avatar-upload` to production.
 3. Apply each unapplied migration in order:
-   `20261102100000`, then `20261102110000`, then `20261102120000`.
+   `20261102100000`, `20261102110000`, `20261102120000`, then
+   `20261103210000`.
 4. Inspect the resulting Storage policy list and database objects.
 5. Deploy `cleanup-avatar-quarantine` and `discord-security-alerts` with
    `--no-verify-jwt`; deploy `delete-account` with JWT verification enabled.
 6. Configure a new production `AVATAR_CLEANUP_SECRET`; configure separate
    Discord secrets only if approved.
 7. Configure production schedules and protected headers. Verify endpoints
-   and schedule cadence before enabling them.
+   and schedule cadence before enabling them. If approved, configure the
+   30-day audit-retention job only after recording the retention policy.
 8. Build and deploy the frontend with production URL and anon key only.
 9. Run a low-risk production smoke test using an authorized test account.
 10. Keep audit disabled unless the privacy/retention approval has been
-    recorded; if approved, enable it explicitly and verify a single expected
-    event in the admin view.
+    recorded; if approved, enable it explicitly and verify expected events
+    without recording raw error text or private content.
 11. Record deployment time, project ref, migration results, function versions,
     frontend release, secret names (not values), schedule status, approvals,
     test results, and remaining issues.

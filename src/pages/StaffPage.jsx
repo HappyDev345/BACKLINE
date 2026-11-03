@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { isDemoMode, supabase } from '../lib/supabase'
-import { getUserFacingError } from '../lib/errorMessages'
+import { getUserFacingError, recordClientError } from '../lib/errorMessages'
 import { timeAgo } from '../lib/utils'
 
 const STAFF_ROLES = [
@@ -77,6 +77,7 @@ function ReportCase({ report, roles, onResolved }) {
     const actionReason = reason.trim()
     if (!actionReason) {
       setError('Add a reason before taking this action.')
+      recordClientError(null, 'moderation_action_reason', 'validation_error')
       return
     }
     setBusy(true)
@@ -286,6 +287,7 @@ export default function StaffPage() {
     const hasRole = account.staff_roles?.some((item) => item.role === role)
     if (role === 'admin' && hasRole && account.id === session?.user?.id) {
       setLoadError('Choose another admin before removing your own admin role.')
+      recordClientError(null, 'admin_self_removal', 'validation_error')
       return
     }
     await accountAction('admin_set_staff_role', {

@@ -9,7 +9,7 @@ import Avatar from '../components/Avatar'
 import ProjectCard from '../components/ProjectCard'
 import PostCard from '../components/PostCard'
 import { timeAgo } from '../lib/utils'
-import { getUserFacingError } from '../lib/errorMessages'
+import { getUserFacingError, recordClientError } from '../lib/errorMessages'
 import ReportButton from '../components/ReportButton'
 import ProfileBadges from '../components/ProfileBadges'
 
@@ -291,10 +291,12 @@ export default function ProfilePage({ promptSignIn }) {
                     setError('')
                     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
                       setError('Choose a JPEG, PNG, or WebP image.')
+                      recordClientError(null, 'avatar_file_type', 'validation_error')
                       return
                     }
                     if (file.size > 5 * 1024 * 1024) {
                       setError('Choose an image smaller than 5 MB.')
+                      recordClientError(null, 'avatar_file_size', 'validation_error')
                       return
                     }
                     if (isDemoMode) {

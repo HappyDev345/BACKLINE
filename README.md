@@ -134,15 +134,19 @@ creator; do not make old conversations visible before checking every member.
 The security logging and upload migrations are
 `20261102100000_security_event_pipeline.sql`,
 `20261102110000_avatar_quarantine.sql`, and
-`20261102120000_security_alert_outbox.sql`. Apply them in timestamp order
-after the earlier migrations. In a separate Supabase project, deploy the
+`20261102120000_security_alert_outbox.sql`, followed by
+`20261103210000_expand_security_event_coverage.sql`. Apply them in timestamp
+order after the earlier migrations. The latest migration adds safe project,
+post, comment, and authenticated client-error events, queues all recorded
+events for alerts, and defines 30-day audit retention. Audit persistence
+remains disabled by default. In a separate Supabase project, deploy the
 `avatar-upload` function before applying the avatar policy migration:
 
 ```bash
 supabase functions deploy avatar-upload
 ```
 
-Apply the three migrations, deploy the other workers, then deploy the
+Apply the four migrations, deploy the other workers, then deploy the
 frontend so avatar uploads use the checked server-side path:
 
 ```bash
@@ -151,11 +155,13 @@ supabase functions deploy cleanup-avatar-quarantine --no-verify-jwt
 supabase functions deploy delete-account
 ```
 
-As of 2 November 2026, the base schema, all nine migrations, and four
-functions have been deployed and checked in a separate staging project. The
-frontend has been connected locally and a signed-in staging avatar upload
-passed, but no hosted frontend has been deployed. Worker secrets/schedules
-are not configured. Nothing has been deployed to production. For the
+As of 3 November 2026, the base schema, the initial nine migrations, and four
+functions have been deployed and checked in staging. The latest event-coverage
+migration is local and has not yet been applied there. A Vercel Preview uses
+staging-only settings; sign-in and avatar update have passed. Staging cleanup
+and Discord schedules are configured, and the synthetic Discord delivery
+test passed with audit turned off again. Nothing has been deployed to
+production. For the
 PowerShell CLI setup, fresh-project bootstrap, staging checks, and safe
 production sequence, follow the
 [security deployment runbook](Documentation/SECURITY-LOGGING-DEPLOYMENT-RUNBOOK.md).

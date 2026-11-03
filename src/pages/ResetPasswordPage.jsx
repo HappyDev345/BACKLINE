@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { isDemoMode, supabase } from '../lib/supabase'
-import { getUserFacingError } from '../lib/errorMessages'
+import { getUserFacingError, recordClientError } from '../lib/errorMessages'
 
 export default function ResetPasswordPage() {
   const { session, loading } = useAuth()
@@ -17,6 +17,7 @@ export default function ResetPasswordPage() {
     setError('')
     if (password !== confirmPassword) {
       setError('The passwords do not match.')
+      recordClientError(null, 'password_reset_confirmation', 'validation_error')
       return
     }
     setBusy(true)

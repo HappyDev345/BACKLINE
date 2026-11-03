@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { isDemoMode, supabase } from '../lib/supabase'
-import { getUserFacingError } from '../lib/errorMessages'
+import { getUserFacingError, recordClientError } from '../lib/errorMessages'
 
 export default function AccountSettingsPage({ promptSignIn }) {
   const { session, profile, loading, signOut } = useAuth()
@@ -49,6 +49,7 @@ export default function AccountSettingsPage({ promptSignIn }) {
     setConfirmation('')
     if (email.trim().toLowerCase() === session.user.email?.toLowerCase()) {
       setError('Enter a different email address.')
+      recordClientError(null, 'account_email_update', 'validation_error')
       return
     }
     setBusy(true)
@@ -69,6 +70,7 @@ export default function AccountSettingsPage({ promptSignIn }) {
     setConfirmation('')
     if (password !== confirmPassword) {
       setError('The new passwords do not match.')
+      recordClientError(null, 'account_password_update', 'validation_error')
       return
     }
     setBusy(true)
@@ -91,6 +93,7 @@ export default function AccountSettingsPage({ promptSignIn }) {
     setConfirmation('')
     if (deleteConfirmation !== 'DELETE') {
       setError('Type DELETE exactly to confirm account deletion.')
+      recordClientError(null, 'account_deletion_confirmation', 'validation_error')
       return
     }
     setBusy(true)
