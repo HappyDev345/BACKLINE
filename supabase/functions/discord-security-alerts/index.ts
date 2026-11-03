@@ -17,6 +17,11 @@ type SecurityAlert = {
   target_type: string | null
   target_id: string | null
   attempt_count: number
+  actor_display_name: string | null
+  actor_username: string | null
+  target_display_name: string | null
+  target_username: string | null
+  project_title: string | null
 }
 
 function jsonResponse(status: number, body: Record<string, string>) {
@@ -26,16 +31,53 @@ function jsonResponse(status: number, body: Record<string, string>) {
   })
 }
 
-function alertText(event: SecurityAlert) {
-  const lines = [
-    `[${event.severity.toUpperCase()}] ${event.event_type} (${event.outcome})`,
-    `Event: ${event.event_id}`,
-    `Occurred: ${event.occurred_at}`,
+function safeEmbedText(value: string, limit: number) {
+  return value
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/([\\*_~`|>])/g, '\\$1')
+    .replace(/@/g, '@\u200b')
+    .slice(0, limit)
+}
+
+function alertEmbed(event: SecurityAlert) {
+  const isError = ['denied', 'failed', 'rejected'].includes(event.outcome)
+  const fields: Array<{ name: string; value: string; inline?: boolean }> = [
+    { name: 'Outcome', value: safeEmbedText(event.outcome, 64), inline: true },
+    { name: 'Severity', value: safeEmbedText(event.severity, 64), inline: true },
   ]
-  if (event.reason_code) lines.push(`Reason: ${event.reason_code}`)
-  if (event.actor_user_id) lines.push(`Actor ID: ${event.actor_user_id}`)
-  if (event.target_type && event.target_id) lines.push(`Target: ${event.target_type} ${event.target_id}`)
-  return lines.join('\n')
+
+  if (event.actor_user_id) {
+    const nameParts = [event.actor_display_name, event.actor_username ? `@${event.actor_username}` : null]
+      .filter((part): part is string => Boolean(part))
+    const actorLabel = nameParts.length ? safeEmbedText(nameParts.join(' · '), 200) : 'Account'
+    fields.push({
+      name: 'Actor',
+      value: `${actorLabel}\nID: ${event.actor_user_id}`,
+    })
+  }
+  if (event.project_title) {
+    fields.push({ name: 'Project', value: safeEmbedText(event.project_title, 1024) })
+  }
+  if (event.target_type && event.target_id) {
+    const targetNameParts = [event.target_display_name, event.target_username ? `@${event.target_username}` : null]
+      .filter((part): part is string => Boolean(part))
+    const targetLabel = targetNameParts.length ? ` · ${safeEmbedText(targetNameParts.join(' · '), 200)}` : ''
+    fields.push({
+      name: 'Target',
+      value: `${safeEmbedText(event.target_type, 64)}${targetLabel}\nID: ${event.target_id}`,
+    })
+  }
+  if (event.reason_code) {
+    fields.push({ name: 'Reason', value: safeEmbedText(event.reason_code, 128) })
+  }
+
+  return {
+    title: safeEmbedText(event.event_type, 256),
+    color: isError ? 0xed4245 : 0x57f287,
+    timestamp: event.occurred_at,
+    fields,
+    footer: { text: `Event ${event.event_id}` },
+  }
 }
 
 Deno.serve(async (request: Request) => {
@@ -88,7 +130,7 @@ Deno.serve(async (request: Request) => {
         signal: AbortSignal.timeout(10_000),
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          content: alertText(alert),
+          embeds: [alertEmbed(alert)],
           allowed_mentions: { parse: [] },
         }),
       })

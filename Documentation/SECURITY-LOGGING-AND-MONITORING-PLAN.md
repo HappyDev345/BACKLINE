@@ -4,9 +4,10 @@
 
 This document records the design and implementation status for BACKLINE's
 security event logging, upload safety, suspicious-content handling, evidence
-preservation, and optional Discord alerts. The repository implementation is
-complete locally. On 2026-11-02, the base schema, all nine migrations, and
-four Edge Functions were deployed to a separate staging project and checked.
+preservation, and optional Discord alerts. The 1.5.0 event coverage and 1.6.0
+rich Discord presentation changes are deployed to staging.
+On 2026-11-02, the base schema, initial nine migrations, and four Edge
+Functions were deployed to a separate staging project and checked.
 The frontend was connected locally and a signed-in test avatar upload
 succeeded. The staging quarantine cleanup secret and hourly schedule are
 configured, and a manual worker invocation returned HTTP 200. A Vercel
@@ -14,7 +15,13 @@ Preview uses Preview-scoped staging settings, and the user confirmed sign-in
 works, the sample-data banner is absent, and a signed-in avatar update
 succeeded. A private staging Discord webhook and worker secrets are set, and
 a synthetic alert was delivered successfully by a manual worker invocation;
-audit logging was turned off afterward. A one-minute staging Discord
+audit logging was turned off afterward. On 2026-11-03, the event-coverage
+migration was manually applied in the staging SQL Editor; project, feed-post,
+and forum-post events were verified in the database and delivered to Discord.
+migration `20261103213000_discord_rich_security_alerts.sql` was subsequently
+applied manually and the updated Discord worker deployed; the user confirmed
+a successful rich-embed delivery in staging. Verify the audit flag is off
+after testing. A one-minute staging Discord
 schedule has been created and verified: two cron executions succeeded and
 scheduled `pg_net` calls returned HTTP 200 with an empty queue. The manual
 test call processed two expected alerts: the synthetic report event and the
@@ -39,12 +46,22 @@ message signals, private avatar quarantine and image re-encoding, and an
 optional Discord alert outbox/worker. The staff workspace includes an
 admin-only recent-event view.
 
+The requested Discord presentation is a compact embed: event-time display
+name and username for the actor (and account target when available), the
+project title for project events, event type/reason/outcome, and Discord's
+native timestamp. Ordinary activity is green; denied, failed, and rejected
+outcomes are red. Message bodies, post/comment text, and raw error messages
+remain excluded. The migration and worker have been deployed to staging, and
+the user confirmed an embed arrived successfully. Production deployment has
+not occurred.
+
 The following limitations and release gates remain:
 
-- Staging has the base schema and all migrations applied in timestamp order;
-  `supabase db lint --linked` reports no schema errors. Repeat the documented
-  process for any other environment, and complete the remaining staging checks
-  before production rollout.
+- Staging has the base schema, the initial migrations, and the event-coverage
+  SQL applied. That expansion was run manually, so reconcile migration history
+  before using `supabase db push`. The 1.6.0 rich-embed migration and updated
+  worker remain undeployed. Complete the remaining staging checks before
+  production rollout.
 - `security.configuration.audit_enabled` defaults to `false`. Keep it disabled
   until the audience/privacy review and routine-event retention period have
   been approved. The server-side message rate limit is active independently.

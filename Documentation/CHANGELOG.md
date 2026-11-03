@@ -3,6 +3,14 @@
 Notable changes to BACKLINE are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [1.6.0] - 2026-11-03
+
+- Reformatted Discord security notifications as timestamped green activity
+  embeds and red error embeds.
+- Added event-time actor names/usernames, account-target names/usernames, and
+  project titles to the relevant audit metadata and Discord alerts. Message
+  bodies, post/comment text, and raw error messages remain excluded.
+
 ## [1.5.0] - 2026-11-03
 
 - Expanded the audit pipeline to record project, feed/forum post, comment, and

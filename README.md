@@ -135,10 +135,13 @@ The security logging and upload migrations are
 `20261102100000_security_event_pipeline.sql`,
 `20261102110000_avatar_quarantine.sql`, and
 `20261102120000_security_alert_outbox.sql`, followed by
-`20261103210000_expand_security_event_coverage.sql`. Apply them in timestamp
-order after the earlier migrations. The latest migration adds safe project,
-post, comment, and authenticated client-error events, queues all recorded
-events for alerts, and defines 30-day audit retention. Audit persistence
+`20261103210000_expand_security_event_coverage.sql` and
+`20261103213000_discord_rich_security_alerts.sql`. Apply them in timestamp
+order after the earlier migrations. These migrations add safe project, post,
+comment, and authenticated client-error events, queue all recorded events for
+alerts, define 30-day audit retention, and format Discord alerts as timestamped
+embeds with names and project titles where available. Message bodies, post and
+comment text, and raw error messages are not included. Audit persistence
 remains disabled by default. In a separate Supabase project, deploy the
 `avatar-upload` function before applying the avatar policy migration:
 
@@ -146,7 +149,7 @@ remains disabled by default. In a separate Supabase project, deploy the
 supabase functions deploy avatar-upload
 ```
 
-Apply the four migrations, deploy the other workers, then deploy the
+Apply the five migrations, deploy the other workers, then deploy the
 frontend so avatar uploads use the checked server-side path:
 
 ```bash
@@ -155,13 +158,15 @@ supabase functions deploy cleanup-avatar-quarantine --no-verify-jwt
 supabase functions deploy delete-account
 ```
 
-As of 3 November 2026, the base schema, the initial nine migrations, and four
-functions have been deployed and checked in staging. The latest event-coverage
-migration is local and has not yet been applied there. A Vercel Preview uses
-staging-only settings; sign-in and avatar update have passed. Staging cleanup
-and Discord schedules are configured, and the synthetic Discord delivery
-test passed with audit turned off again. Nothing has been deployed to
-production. For the
+As of 3 November 2026, the base schema and initial nine migrations and four
+functions have been deployed and checked in staging. The expanded event
+coverage migration was subsequently run manually in the staging SQL Editor;
+project, feed-post, and forum-post events were verified delivered to Discord.
+The rich-embed migration and updated Discord worker have now been deployed to
+staging, and the user confirmed that an embed arrived successfully. A Vercel
+Preview uses staging-only settings; sign-in and avatar update have passed.
+Staging cleanup and Discord schedules are configured. Verify audit logging is
+off after testing. Nothing has been deployed to production. For the
 PowerShell CLI setup, fresh-project bootstrap, staging checks, and safe
 production sequence, follow the
 [security deployment runbook](Documentation/SECURITY-LOGGING-DEPLOYMENT-RUNBOOK.md).

@@ -29,6 +29,22 @@ production deployment has occurred. Start with the
 [deployment runbook](./SECURITY-LOGGING-DEPLOYMENT-RUNBOOK.md) for what
 remains.
 
+## Requested Discord alert presentation (1.6.0)
+
+The user asked for more readable Discord alerts, including account names and
+display names, project titles, Discord timestamps, and color cues (green for
+ordinary activity and red for errors). The follow-up implementation sends a
+Discord embed and snapshots only the actor's display name/username, an
+account-target display name/username where applicable, and a project title
+for project events. The embed uses Discord's native timestamp, shows event
+type/outcome/severity/reason and IDs, and colors denied, failed, or rejected
+outcomes red; other activity is green. It does not include message bodies,
+post/comment text, or raw error messages. These names and titles are copied
+into Discord and persist there independently of the 30-day database retention.
+The migration was applied manually in staging SQL Editor, the updated worker
+was deployed there, and the user confirmed successful embed delivery. Verify
+the audit flag is off after the test; production has not been deployed.
+
 ## Executive summary
 
 The work creates four related safeguards:

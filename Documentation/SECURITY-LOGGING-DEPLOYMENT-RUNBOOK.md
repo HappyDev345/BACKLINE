@@ -3,7 +3,7 @@
 ## Purpose and current status
 
 This runbook gives the intended step-by-step sequence for deploying the
-version 1.5.0 security logging, avatar upload, cleanup, and optional alert
+version 1.6.0 security logging, avatar upload, cleanup, and optional alert
 changes to a **separate Supabase project first**.
 
 Initial staging deployment was completed on 2026-11-02: the base schema and
@@ -71,10 +71,11 @@ For current scope and outstanding design choices, read the
 | `20261102100000_security_event_pipeline.sql` | Private audit event table, trusted writers/triggers, admin read policy, reported-message evidence audit, and message rate controls | Event persistence off; message rate limit set to 30/minute |
 | `20261102110000_avatar_quarantine.sql` | Private quarantine bucket, upload quota, service-only upload RPCs, and removal of direct media insert/update policies | Quarantine bucket private; direct browser upload policy removed |
 | `20261102120000_security_alert_outbox.sql` | Restricted event queue and claim/complete functions for optional alerts | Queue exists; the staging Discord webhook and worker are configured and manually tested |
-| `20261103210000_expand_security_event_coverage.sql` | Project/feed/forum/comment audit events, authenticated client error events, all-event Discord queueing, and 30-day log purge function | Local code only; not yet applied to staging. Audit persistence remains off by default. |
+| `20261103210000_expand_security_event_coverage.sql` | Project/feed/forum/comment audit events, authenticated client error events, all-event Discord queueing, and 30-day log purge function | Applied manually in staging SQL Editor on 2026-11-03; content event alerts were verified delivered. Confirm migration history separately. |
+| `20261103213000_discord_rich_security_alerts.sql` | Event-time display names/usernames, project-title metadata, and rich Discord embeds | Applied manually in staging SQL Editor; rich-embed delivery confirmed by the user. Confirm migration history separately. |
 | `avatar-upload` | Authenticated image validation, decode/re-encode, and publication | Needs Supabase URL/anon/service role environment |
 | `cleanup-avatar-quarantine` | Removes private quarantine objects older than one hour | Requires `AVATAR_CLEANUP_SECRET` and an external schedule |
-| `discord-security-alerts` | Delivers selected outbox events | Optional; requires webhook, worker secret, and external schedule |
+| `discord-security-alerts` | Delivers queued outbox events as privacy-minimal Discord embeds | Optional; requires webhook, worker secret, and external schedule |
 | `delete-account` | Removes account media from both buckets before account removal | Must be redeployed with the changed implementation |
 | Frontend | Sends connected-mode avatars to the new upload function and exposes admin event view | Requires matching Supabase project URL/anon key at frontend build/deploy |
 
@@ -151,7 +152,7 @@ npm run build
 & .\node_modules\.bin\supabase.cmd --version
 ```
 
-Confirm that the intended source revision contains version `1.4.0` in
+Confirm that the intended source revision contains version `1.6.0` in
 `package.json` and the root package records in `package-lock.json`.
 Inspect `git status` carefully: do not discard uncommitted changes or include
 unrelated files in a release.
@@ -297,8 +298,8 @@ Then preview the timestamped migrations:
 & .\node_modules\.bin\supabase.cmd db push --linked --dry-run
 ```
 
-Read the preview carefully. For this branch it should list nine files, in
-order: the six existing migrations from October 2026 followed by the four
+Read the preview carefully. For a fresh project it should list eleven files,
+in order: the six existing migrations from October 2026 followed by the five
 new migrations from November 2026. If it lists anything unexpected, or
 complains about local/remote history, stop rather than guessing.
 
@@ -312,12 +313,13 @@ Read the CLI confirmation prompt and verify the project/ref and migration
 list before answering `y`. This records the migration versions in Supabase's
 migration history. Do not add `--yes` when you want the extra confirmation.
 
-The four new files are:
+The five new files are:
 
 1. `supabase/migrations/20261102100000_security_event_pipeline.sql`
 2. `supabase/migrations/20261102110000_avatar_quarantine.sql`
 3. `supabase/migrations/20261102120000_security_alert_outbox.sql`
 4. `supabase/migrations/20261103210000_expand_security_event_coverage.sql`
+5. `supabase/migrations/20261103213000_discord_rich_security_alerts.sql`
 
 ### 4.2 Existing project or uncertain migration history
 
@@ -404,6 +406,36 @@ Deploy to the same staging project:
 & .\node_modules\.bin\supabase.cmd functions deploy discord-security-alerts --no-verify-jwt --project-ref <STAGING_PROJECT_REF>
 & .\node_modules\.bin\supabase.cmd functions deploy delete-account --project-ref <STAGING_PROJECT_REF>
 ```
+
+### 5.1 Apply the 1.6.0 rich Discord alert update to the current staging project
+
+The expanded event-coverage migration was applied to this staging project
+manually through SQL Editor. Do not run `supabase db push` against it until
+the manually applied migration history has been reconciled.
+
+1. Confirm the Supabase Dashboard is showing the staging project.
+2. Open `supabase/migrations/20261103213000_discord_rich_security_alerts.sql`,
+   copy its full contents into a new SQL Editor query, and run it. Stop if the
+   editor reports an error.
+3. From the repository root, deploy the updated worker to that same staging
+   project:
+
+   ```powershell
+   & .\node_modules\.bin\supabase.cmd functions deploy discord-security-alerts --no-verify-jwt --project-ref <STAGING_PROJECT_REF>
+   ```
+
+4. Verify the function deployment in Supabase. Keep `audit_enabled` off until
+   you are ready for a staging test. For a test, enable it briefly, create a
+   test project, and verify that Discord shows the display name/username,
+   project title, timestamp, and green activity color. Then turn auditing off
+   again. Error-colored embed behavior can be checked with a safe synthetic
+   error event; do not generate real user errors to test the color.
+
+This update snapshots an event-time display name and username (and account
+target names where applicable) plus project titles. These values and account
+IDs are sent to Discord, where they are outside the database's 30-day purge.
+Do not use sensitive project titles in testing, and review Discord channel
+access and message retention before enabling routine alerts.
 
 `cleanup-avatar-quarantine` and `discord-security-alerts` are scheduled
 workers. Their platform JWT verification is disabled because they authenticate
