@@ -5,7 +5,8 @@
 This document records the design and implementation status for BACKLINE's
 security event logging, upload safety, suspicious-content handling, evidence
 preservation, and optional Discord alerts. The 1.5.0 event coverage and 1.6.0
-rich Discord presentation changes are deployed to staging.
+rich Discord presentation changes are deployed to staging. The 1.7.0
+immediate-wakeup and resilient-delivery changes are local and not yet deployed.
 On 2026-11-02, the base schema, initial nine migrations, and four Edge
 Functions were deployed to a separate staging project and checked.
 The frontend was connected locally and a signed-in test avatar upload
@@ -55,11 +56,22 @@ remain excluded. The migration and worker have been deployed to staging, and
 the user confirmed an embed arrived successfully. Production deployment has
 not occurred.
 
+Version 1.7.0 adds a best-effort `pg_net` wake-up whenever an event is added to
+the alert outbox. The durable outbox and the existing scheduled worker remain
+the recovery path if that wake-up fails. Delivery is globally paced to at most
+four claims in a rolling two-second window, processes one alert at a time,
+honors Discord `Retry-After`, and drains due backlog in bounded worker runs.
+Alerts that fail five times enter a visible dead-letter state and are protected
+from the routine 30-day purge until an operator resolves them. This is
+at-least-once delivery: if Discord accepts a message but the response is lost,
+a retry may produce a duplicate. No alert system can promise delivery during
+indefinite provider outage; queue and dead-letter monitoring remain necessary.
+
 The following limitations and release gates remain:
 
-- Staging has the base schema, the initial migrations, and the event-coverage
-  SQL applied. That expansion was run manually, so reconcile migration history
-  before using `supabase db push`. The 1.6.0 rich-embed migration and updated
+- Staging has the base schema, event-coverage SQL, and rich-embed SQL applied.
+  Those migrations were run manually, so reconcile migration history before
+  using `supabase db push`. The 1.7.0 immediate-wakeup migration and updated
   worker remain undeployed. Complete the remaining staging checks before
   production rollout.
 - `security.configuration.audit_enabled` defaults to `false`. Keep it disabled
@@ -183,7 +195,7 @@ Client request
   -> authenticated backend operation / upload ingress
   -> authorization, validation, rate limit, and safety checks
   -> authoritative event record
-  -> optional queued Discord alert for selected event types
+  -> optional queued Discord alert for persisted event types
   -> authorized admin review in BACKLINE
 ```
 

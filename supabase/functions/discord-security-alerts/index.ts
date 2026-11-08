@@ -80,6 +80,31 @@ function alertEmbed(event: SecurityAlert) {
   }
 }
 
+async function retryAfterSeconds(response: Response) {
+  const retryAfter = response.headers.get('Retry-After')
+    ?? response.headers.get('X-RateLimit-Reset-After')
+  if (retryAfter) {
+    const seconds = Number(retryAfter)
+    if (Number.isFinite(seconds)) return Math.max(0, Math.min(300, Math.ceil(seconds)))
+    const dateDelay = Date.parse(retryAfter) - Date.now()
+    if (Number.isFinite(dateDelay)) return Math.max(0, Math.min(300, Math.ceil(dateDelay / 1000)))
+  }
+
+  try {
+    const payload = await response.clone().json() as { retry_after?: unknown }
+    if (typeof payload.retry_after === 'number' && Number.isFinite(payload.retry_after)) {
+      return Math.max(0, Math.min(300, Math.ceil(payload.retry_after)))
+    }
+  } catch {
+    // Use a conservative fallback when Discord doesn't return a readable delay.
+  }
+  return 2
+}
+
+function delay(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds))
+}
+
 Deno.serve(async (request: Request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (request.method !== 'POST') return jsonResponse(405, { error: 'Method not allowed.' })
@@ -113,16 +138,40 @@ Deno.serve(async (request: Request) => {
   const service = createClient(serviceUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   })
-  const { data: alerts, error: claimError } = await service.rpc('claim_security_alerts', { batch_size: 10 })
-  if (claimError) {
-    console.error('Discord security alert queue could not be claimed.')
-    return jsonResponse(500, { error: 'Security alerts could not be processed.' })
-  }
-
   let deliveryFailures = 0
-  for (const alert of (alerts || []) as SecurityAlert[]) {
+  let processed = 0
+  const startedAt = Date.now()
+  const maxRunMilliseconds = 50_000
+  while (Date.now() - startedAt < maxRunMilliseconds) {
+    const { data: alerts, error: claimError } = await service.rpc('claim_security_alerts', { batch_size: 1 })
+    if (claimError) {
+      console.error('Discord security alert queue could not be claimed.')
+      return jsonResponse(500, { error: 'Security alerts could not be processed.' })
+    }
+
+    const alert = (alerts || [])[0] as SecurityAlert | undefined
+    if (!alert) {
+      const { data: stateRows, error: stateError } = await service.rpc('security_alert_dispatch_state')
+      if (stateError) {
+        console.error('Discord security alert queue state could not be read.')
+        return jsonResponse(500, { error: 'Security alerts could not be processed.' })
+      }
+
+      const state = stateRows?.[0] as {
+        pending_alert_count: number
+        wait_seconds: number
+      } | undefined
+      if (!state || Number(state.pending_alert_count) === 0) break
+
+      const waitMilliseconds = Math.max(1, Number(state.wait_seconds) || 1) * 1000
+      if (Date.now() - startedAt + waitMilliseconds >= maxRunMilliseconds) break
+      await delay(waitMilliseconds)
+      continue
+    }
+
     let deliverySucceeded = false
     let failureCode: string | null = null
+    let retryDelaySeconds: number | null = null
     try {
       const response = await fetch(webhook, {
         method: 'POST',
@@ -140,6 +189,7 @@ Deno.serve(async (request: Request) => {
         failureCode = response.status === 429
           ? 'discord_http_429'
           : response.status >= 500 ? 'discord_http_5xx' : 'discord_http_4xx'
+        if (response.status === 429) retryDelaySeconds = await retryAfterSeconds(response)
       }
     } catch {
       failureCode = 'discord_network_error'
@@ -149,6 +199,7 @@ Deno.serve(async (request: Request) => {
       event_uuid: alert.event_id,
       delivery_succeeded: deliverySucceeded,
       failure_code: failureCode,
+      retry_after_seconds: retryDelaySeconds,
     })
     if (completionError) {
       deliveryFailures++
@@ -156,10 +207,20 @@ Deno.serve(async (request: Request) => {
     } else if (!deliverySucceeded) {
       deliveryFailures++
     }
+    processed++
   }
+
+  const { data: stateRows, error: stateError } = await service.rpc('security_alert_dispatch_state')
+  if (stateError) {
+    console.error('Discord security alert queue state could not be read after processing.')
+    return jsonResponse(500, { error: 'Security alerts could not be processed.' })
+  }
+  const pendingCount = Number(stateRows?.[0]?.pending_alert_count || 0)
 
   if (deliveryFailures) {
     return jsonResponse(502, { error: 'One or more security alerts could not be delivered.' })
   }
-  return jsonResponse(200, { message: `Processed ${(alerts || []).length} security alert(s).` })
+  return jsonResponse(200, {
+    message: `Processed ${processed} security alert(s); ${pendingCount} alert(s) remain pending.`,
+  })
 })

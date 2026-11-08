@@ -6,7 +6,8 @@ This is a technical learning record for the security logging, avatar upload,
 moderation-signal, and optional alert work recorded in BACKLINE version
 **1.4.0**. It explains the problem being addressed, how the repository
 implementation is structured, what the main code paths do, what was tested,
-and what still needs to happen before a real deployment.
+and what still needs to happen before a real deployment. Later entries record
+the 1.5.0 through 1.7.0 changes.
 
 It is not a deployment approval, privacy assessment, or penetration test.
 Initial staging deployment was completed on 2026-11-02: the base schema, all
@@ -45,6 +46,31 @@ The migration was applied manually in staging SQL Editor, the updated worker
 was deployed there, and the user confirmed successful embed delivery. Verify
 the audit flag is off after the test; production has not been deployed.
 
+## Faster and more resilient delivery (1.7.0)
+
+The latest change keeps the outbox because it is what allows application
+actions to succeed independently of Discord outages while preserving alerts
+for retry and review. A new outbox trigger queues an asynchronous `pg_net`
+request to wake the Edge Function immediately. It reads the project URL and
+worker secret from Vault; if Vault or `pg_net` is unavailable, the trigger
+logs a sanitized warning and leaves the row in the outbox for scheduled
+polling. The existing one-minute schedule should remain enabled as a backup.
+
+The fixed ten-attempts-per-minute cap was replaced with a database-serialized
+limit of four claims in any rolling two-second period, with one alert per
+claim. This is a conservative pace below the usual Discord webhook threshold,
+not a provider guarantee. The worker drains backlog in bounded runs, waits
+when the shared limit is full, and uses Discord's `Retry-After` header/body
+when rate-limited. Other errors retain exponential backoff. Five failed
+attempts move an alert to `dead_letter`; those rows remain queryable and are
+excluded from routine retention deletion until an operator resolves them.
+
+This is at-least-once delivery, not exactly-once: if Discord accepts an embed
+but the response is lost, the retry may duplicate it. A prolonged outage,
+invalid webhook, or unrecoverable payload can still prevent delivery, so
+operators must watch pending counts and dead-letter rows. The migration and
+worker changes are local only until manually applied/deployed to staging.
+
 ## Executive summary
 
 The work creates four related safeguards:
@@ -57,7 +83,7 @@ The work creates four related safeguards:
 3. Message submissions have a database-enforced per-account rate limit and
    an optional repeated-message signal. These controls do not perform
    automated content moderation.
-4. An optional database outbox can deliver a small allowlisted event subset
+4. An optional database outbox can deliver privacy-minimal event metadata
    to a private Discord channel. Discord is a notification destination, not
    the audit system of record.
 
@@ -384,29 +410,31 @@ project's existing RLS policies and API schema cache are correct.
 ### Database outbox
 
 [`20261102120000_security_alert_outbox.sql`](../supabase/migrations/20261102120000_security_alert_outbox.sql)
-adds a private queue keyed by `event_id`, making an event's alert unique. A
-trigger queues only selected events: report creation, staff-role changes,
-account suspension/reinstatement, and rejected/failed uploads.
+adds a private queue keyed by `event_id`, making an event's alert unique. The
+event-coverage migration updates the trigger to queue every persisted event.
 
 `claim_security_alerts(batch_size)` is service-role-only. It serializes
 dispatch claiming with an advisory lock, claims due rows, tracks attempts,
-and enforces a global maximum of 10 alert attempts in a rolling minute. A
-stale `sending` row can be reclaimed; rows that have exhausted five attempts
-are moved to `dead_letter`.
+and enforces a global maximum of four claims in any rolling two-second
+window. The new wake trigger submits an asynchronous `pg_net` request using
+the project URL and worker secret stored in Vault. The scheduled worker is
+still required as a backup. A stale `sending` row can be reclaimed; rows that
+have exhausted five attempts are moved to `dead_letter`.
 
 `complete_security_alert(...)` records success or failure. Failed attempts
-are retried with exponential delays of 30, 60, 120, 240, then 480 seconds.
-Rows stop retrying after five attempts. This status is for delivery
-operations; it is not the authoritative record of the underlying security
-event.
+are retried with exponential delays and Discord's retry delay is honored.
+Rows stop automatic retries after five attempts, but dead-letter rows remain
+in the database and are not deleted by the normal retention job until an
+operator resolves them.
 
 ### Edge Function delivery
 
 [`discord-security-alerts/index.ts`](../supabase/functions/discord-security-alerts/index.ts)
 requires `x-security-worker-secret` and the server-side
 `DISCORD_SECURITY_WEBHOOK_URL`. It validates HTTPS and an official Discord
-webhook host/path, asks the database for a bounded batch, and posts fixed
-event fields. It sets `allowed_mentions.parse` to an empty list, rejects
+webhook host/path, asks the database for one alert at a time, and posts fixed
+event fields. It drains due alerts in bounded runs and waits for the next safe
+send window when necessary. It sets `allowed_mentions.parse` to an empty list, rejects
 redirects, and applies a 10-second network timeout. It records HTTP/network
 failure categories rather than raw response bodies or webhook secrets.
 

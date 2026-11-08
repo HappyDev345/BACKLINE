@@ -3,7 +3,7 @@
 ## Purpose and current status
 
 This runbook gives the intended step-by-step sequence for deploying the
-version 1.6.0 security logging, avatar upload, cleanup, and optional alert
+version 1.7.0 security logging, avatar upload, cleanup, and optional alert
 changes to a **separate Supabase project first**.
 
 Initial staging deployment was completed on 2026-11-02: the base schema and
@@ -73,6 +73,7 @@ For current scope and outstanding design choices, read the
 | `20261102120000_security_alert_outbox.sql` | Restricted event queue and claim/complete functions for optional alerts | Queue exists; the staging Discord webhook and worker are configured and manually tested |
 | `20261103210000_expand_security_event_coverage.sql` | Project/feed/forum/comment audit events, authenticated client error events, all-event Discord queueing, and 30-day log purge function | Applied manually in staging SQL Editor on 2026-11-03; content event alerts were verified delivered. Confirm migration history separately. |
 | `20261103213000_discord_rich_security_alerts.sql` | Event-time display names/usernames, project-title metadata, and rich Discord embeds | Applied manually in staging SQL Editor; rich-embed delivery confirmed by the user. Confirm migration history separately. |
+| `20261108190000_immediate_resilient_discord_delivery.sql` | Immediate best-effort wake-up, Discord-aware send pacing/retries, backlog draining, and retention protection for undelivered alerts | Local code only; not yet applied to staging. Requires `pg_net` and two Vault entries; scheduled polling remains the backup. |
 | `avatar-upload` | Authenticated image validation, decode/re-encode, and publication | Needs Supabase URL/anon/service role environment |
 | `cleanup-avatar-quarantine` | Removes private quarantine objects older than one hour | Requires `AVATAR_CLEANUP_SECRET` and an external schedule |
 | `discord-security-alerts` | Delivers queued outbox events as privacy-minimal Discord embeds | Optional; requires webhook, worker secret, and external schedule |
@@ -152,7 +153,7 @@ npm run build
 & .\node_modules\.bin\supabase.cmd --version
 ```
 
-Confirm that the intended source revision contains version `1.6.0` in
+Confirm that the intended source revision contains version `1.7.0` in
 `package.json` and the root package records in `package-lock.json`.
 Inspect `git status` carefully: do not discard uncommitted changes or include
 unrelated files in a release.
@@ -298,8 +299,8 @@ Then preview the timestamped migrations:
 & .\node_modules\.bin\supabase.cmd db push --linked --dry-run
 ```
 
-Read the preview carefully. For a fresh project it should list eleven files,
-in order: the six existing migrations from October 2026 followed by the five
+Read the preview carefully. For a fresh project it should list twelve files,
+in order: the six existing migrations from October 2026 followed by the six
 new migrations from November 2026. If it lists anything unexpected, or
 complains about local/remote history, stop rather than guessing.
 
@@ -313,13 +314,14 @@ Read the CLI confirmation prompt and verify the project/ref and migration
 list before answering `y`. This records the migration versions in Supabase's
 migration history. Do not add `--yes` when you want the extra confirmation.
 
-The five new files are:
+The six new files are:
 
 1. `supabase/migrations/20261102100000_security_event_pipeline.sql`
 2. `supabase/migrations/20261102110000_avatar_quarantine.sql`
 3. `supabase/migrations/20261102120000_security_alert_outbox.sql`
 4. `supabase/migrations/20261103210000_expand_security_event_coverage.sql`
 5. `supabase/migrations/20261103213000_discord_rich_security_alerts.sql`
+6. `supabase/migrations/20261108190000_immediate_resilient_discord_delivery.sql`
 
 ### 4.2 Existing project or uncertain migration history
 
@@ -436,6 +438,39 @@ target names where applicable) plus project titles. These values and account
 IDs are sent to Discord, where they are outside the database's 30-day purge.
 Do not use sensitive project titles in testing, and review Discord channel
 access and message retention before enabling routine alerts.
+
+### 5.2 Apply the 1.7.0 immediate-wakeup delivery update
+
+The migration uses `pg_net` to wake the alert worker after an outbox entry is
+created. It does not send the Discord webhook from the application database
+transaction. The durable outbox remains the source of truth; keep the existing
+scheduled worker enabled as a backup.
+
+1. In **Database → Extensions**, confirm `pg_net` is enabled.
+2. In **Database → Vault**, add these entries without pasting their values
+   into SQL or source control:
+   - `backline_project_url`: the staging Supabase project URL.
+   - `discord_security_worker_secret`: the same secret value configured as
+     the Edge Function secret `SECURITY_WORKER_SECRET`.
+3. Confirm `audit_enabled = false`, then apply
+   `supabase/migrations/20261108190000_immediate_resilient_discord_delivery.sql`
+   to the staging SQL Editor. Stop on any SQL error.
+4. Deploy the updated worker to the same staging project:
+
+   ```powershell
+   & .\node_modules\.bin\supabase.cmd functions deploy discord-security-alerts --no-verify-jwt --project-ref <STAGING_PROJECT_REF>
+   ```
+
+5. Keep the existing one-minute Discord schedule active as a backup. Test in
+   staging by briefly enabling audit, creating one test project, and verifying
+   an embed arrives promptly. Check that the outbox status becomes `delivered`,
+   then turn audit logging off again.
+
+The database applies a shared pace of up to four alert claims per rolling
+two-second window. The worker processes alerts one by one, drains due backlog
+for a bounded period, and honors Discord `Retry-After`. No system can deliver
+during an indefinite outage. A Discord acceptance followed by a lost response
+can result in a duplicate on retry; delivery is at-least-once, not exactly-once.
 
 `cleanup-avatar-quarantine` and `discord-security-alerts` are scheduled
 workers. Their platform JWT verification is disabled because they authenticate
@@ -583,21 +618,52 @@ Do not pass the secret in a query parameter or URL.
 
 If approved, configure a POST schedule to the `discord-security-alerts`
 function URL with `x-security-worker-secret` in the protected header store.
-Choose a cadence suitable for the response need and the database's global
-limit of 10 alert attempts per minute. Monitor non-2xx responses and the
-outbox backlog/dead-letter state.
+Keep the existing one-minute schedule as a fallback for missed wake-ups and
+deferred retries; new outbox inserts also request immediate worker wake-up
+after the 1.7.0 migration is applied and Vault is configured. The database
+limits dispatch to four claims per rolling two-second window and Discord may
+impose additional rate limits. Monitor non-2xx responses, pending backlog, and
+dead-letter rows.
 
-The worker uses retries and a bounded batch; repeated scheduler calls do not
-make Discord authoritative. Test delivery and outage behavior in staging
-before enabling the schedule in production.
+Use this query to check queue health without exposing alert payloads:
+
+```sql
+select status, count(*) as alerts,
+       min(created_at) as oldest_created,
+       min(last_attempt_at) as oldest_last_attempt
+from public.security_alert_outbox
+group by status
+order by status;
+```
+
+`dead_letter` means the worker exhausted its automatic retry budget; the event
+is retained for operator review. To retry a confirmed-fixed delivery issue,
+reset only the selected event after checking the cause:
+
+```sql
+update public.security_alert_outbox
+set status = 'pending',
+    attempt_count = 0,
+    next_attempt_at = now(),
+    last_error_code = null,
+    updated_at = now()
+where event_id = '<EVENT_UUID>'
+  and status = 'dead_letter';
+```
+
+Test delivery and outage behavior in staging before enabling the schedule in
+production.
 
 ### 7.3 Audit-event retention
 
 The expanded event-coverage migration defines
-`security.purge_expired_security_events()`, which removes audit events older
-than 30 days. Deleting the parent event also removes its associated outbox
-record. This does **not** delete Discord messages already sent; Discord
-retention must be reviewed separately.
+`security.purge_expired_security_events()`, which removes delivered audit
+events older than 30 days and their associated outbox rows. The 1.7.0
+delivery migration protects pending, sending, and dead-letter alerts from
+purge so undelivered alerts are not silently discarded. Dead-letter records
+remain until an operator resolves them. Purging database rows does **not**
+delete Discord messages already sent; Discord retention must be reviewed
+separately.
 
 After applying the migration and confirming `pg_cron` is enabled, schedule a
 daily purge in the target project:

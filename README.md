@@ -136,8 +136,9 @@ The security logging and upload migrations are
 `20261102110000_avatar_quarantine.sql`, and
 `20261102120000_security_alert_outbox.sql`, followed by
 `20261103210000_expand_security_event_coverage.sql` and
-`20261103213000_discord_rich_security_alerts.sql`. Apply them in timestamp
-order after the earlier migrations. These migrations add safe project, post,
+`20261103213000_discord_rich_security_alerts.sql`, followed by
+`20261108190000_immediate_resilient_discord_delivery.sql`. Apply them in
+timestamp order after the earlier migrations. These migrations add safe project, post,
 comment, and authenticated client-error events, queue all recorded events for
 alerts, define 30-day audit retention, and format Discord alerts as timestamped
 embeds with names and project titles where available. Message bodies, post and
@@ -149,7 +150,7 @@ remains disabled by default. In a separate Supabase project, deploy the
 supabase functions deploy avatar-upload
 ```
 
-Apply the five migrations, deploy the other workers, then deploy the
+Apply the six migrations, deploy the other workers, then deploy the
 frontend so avatar uploads use the checked server-side path:
 
 ```bash
@@ -166,7 +167,9 @@ The rich-embed migration and updated Discord worker have now been deployed to
 staging, and the user confirmed that an embed arrived successfully. A Vercel
 Preview uses staging-only settings; sign-in and avatar update have passed.
 Staging cleanup and Discord schedules are configured. Verify audit logging is
-off after testing. Nothing has been deployed to production. For the
+off after testing. The immediate-wakeup migration and worker changes are new
+local work and have not yet been deployed. Nothing has been deployed to
+production. For the
 PowerShell CLI setup, fresh-project bootstrap, staging checks, and safe
 production sequence, follow the
 [security deployment runbook](Documentation/SECURITY-LOGGING-DEPLOYMENT-RUNBOOK.md).

@@ -3,6 +3,16 @@
 Notable changes to BACKLINE are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [1.7.0] - 2026-11-08
+
+- Added immediate, best-effort worker wake-ups when alerts enter the durable
+  outbox, while retaining scheduled polling as a backup.
+- Replaced the conservative 10-per-minute cap with a global four-attempts-per-
+  two-seconds safety limit, honored Discord `Retry-After`, and drained due
+  backlog in bounded worker runs.
+- Kept dead-letter alerts in the database beyond routine retention until an
+  operator resolves them.
+
 ## [1.6.0] - 2026-11-03
 
 - Reformatted Discord security notifications as timestamped green activity
