@@ -3,6 +3,15 @@
 Notable changes to BACKLINE are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [1.8.0] - 2026-11-08
+
+- Added sanitized 200-character excerpts from feed posts, forum posts,
+  comments, and report details to Discord embeds. Post titles are included
+  when available; links and mentions in excerpts are neutralized.
+- Report excerpts may contain text copied from a reported private message.
+  Discord copies are outside BACKLINE's database retention and require
+  careful channel access and retention management.
+
 ## [1.7.0] - 2026-11-08
 
 - Added immediate, best-effort worker wake-ups when alerts enter the durable

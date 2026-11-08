@@ -137,12 +137,16 @@ The security logging and upload migrations are
 `20261102120000_security_alert_outbox.sql`, followed by
 `20261103210000_expand_security_event_coverage.sql` and
 `20261103213000_discord_rich_security_alerts.sql`, followed by
-`20261108190000_immediate_resilient_discord_delivery.sql`. Apply them in
-timestamp order after the earlier migrations. These migrations add safe project, post,
+`20261108190000_immediate_resilient_discord_delivery.sql`, followed by
+`20261108213000_add_discord_content_excerpts.sql`. Apply them in timestamp
+order after the earlier migrations. These migrations add safe project, post,
 comment, and authenticated client-error events, queue all recorded events for
 alerts, define 30-day audit retention, and format Discord alerts as timestamped
 embeds with names and project titles where available. Message bodies, post and
-comment text, and raw error messages are not included. Audit persistence
+comment text, and raw error messages are not included in full; Discord embeds
+include sanitized excerpts up to 200 characters from public feed/forum posts,
+comments, and report details. A report excerpt may contain copied private-
+message text and is retained by Discord independently. Audit persistence
 remains disabled by default. In a separate Supabase project, deploy the
 `avatar-upload` function before applying the avatar policy migration:
 
@@ -150,7 +154,7 @@ remains disabled by default. In a separate Supabase project, deploy the
 supabase functions deploy avatar-upload
 ```
 
-Apply the six migrations, deploy the other workers, then deploy the
+Apply the seven migrations, deploy the other workers, then deploy the
 frontend so avatar uploads use the checked server-side path:
 
 ```bash
@@ -167,9 +171,10 @@ The rich-embed migration and updated Discord worker have now been deployed to
 staging, and the user confirmed that an embed arrived successfully. A Vercel
 Preview uses staging-only settings; sign-in and avatar update have passed.
 Staging cleanup and Discord schedules are configured. Verify audit logging is
-off after testing. The immediate-wakeup migration and worker changes are new
-local work and have not yet been deployed. Nothing has been deployed to
-production. For the
+off after testing. The 1.7.0 immediate-wakeup migration and worker have now
+been applied/deployed to staging; verify database objects and immediate
+delivery there. The 1.8.0 content-excerpt change is local and is not deployed.
+Nothing has been deployed to production. For the
 PowerShell CLI setup, fresh-project bootstrap, staging checks, and safe
 production sequence, follow the
 [security deployment runbook](Documentation/SECURITY-LOGGING-DEPLOYMENT-RUNBOOK.md).

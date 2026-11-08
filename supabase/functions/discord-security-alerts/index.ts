@@ -22,6 +22,8 @@ type SecurityAlert = {
   target_display_name: string | null
   target_username: string | null
   project_title: string | null
+  content_title: string | null
+  content_excerpt: string | null
 }
 
 function jsonResponse(status: number, body: Record<string, string>) {
@@ -34,6 +36,7 @@ function jsonResponse(status: number, body: Record<string, string>) {
 function safeEmbedText(value: string, limit: number) {
   return value
     .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/https?:\/\//gi, (scheme) => scheme.replace(':', '[:]'))
     .replace(/([\\*_~`|>])/g, '\\$1')
     .replace(/@/g, '@\u200b')
     .slice(0, limit)
@@ -57,6 +60,13 @@ function alertEmbed(event: SecurityAlert) {
   }
   if (event.project_title) {
     fields.push({ name: 'Project', value: safeEmbedText(event.project_title, 1024) })
+  }
+  if (event.content_title) {
+    fields.push({ name: 'Post title', value: safeEmbedText(event.content_title, 256) })
+  }
+  if (event.content_excerpt) {
+    const excerptLabel = event.event_type === 'report.created' ? 'Report details excerpt' : 'Content excerpt'
+    fields.push({ name: excerptLabel, value: safeEmbedText(event.content_excerpt, 600) })
   }
   if (event.target_type && event.target_id) {
     const targetNameParts = [event.target_display_name, event.target_username ? `@${event.target_username}` : null]

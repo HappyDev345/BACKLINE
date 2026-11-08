@@ -3,7 +3,7 @@
 ## Purpose and current status
 
 This runbook gives the intended step-by-step sequence for deploying the
-version 1.7.0 security logging, avatar upload, cleanup, and optional alert
+version 1.8.0 security logging, avatar upload, cleanup, and optional alert
 changes to a **separate Supabase project first**.
 
 Initial staging deployment was completed on 2026-11-02: the base schema and
@@ -73,7 +73,8 @@ For current scope and outstanding design choices, read the
 | `20261102120000_security_alert_outbox.sql` | Restricted event queue and claim/complete functions for optional alerts | Queue exists; the staging Discord webhook and worker are configured and manually tested |
 | `20261103210000_expand_security_event_coverage.sql` | Project/feed/forum/comment audit events, authenticated client error events, all-event Discord queueing, and 30-day log purge function | Applied manually in staging SQL Editor on 2026-11-03; content event alerts were verified delivered. Confirm migration history separately. |
 | `20261103213000_discord_rich_security_alerts.sql` | Event-time display names/usernames, project-title metadata, and rich Discord embeds | Applied manually in staging SQL Editor; rich-embed delivery confirmed by the user. Confirm migration history separately. |
-| `20261108190000_immediate_resilient_discord_delivery.sql` | Immediate best-effort wake-up, Discord-aware send pacing/retries, backlog draining, and retention protection for undelivered alerts | Local code only; not yet applied to staging. Requires `pg_net` and two Vault entries; scheduled polling remains the backup. |
+| `20261108190000_immediate_resilient_discord_delivery.sql` | Immediate best-effort wake-up, Discord-aware send pacing/retries, backlog draining, and retention protection for undelivered alerts | Applied manually in staging SQL Editor on 2026-11-08 with no reported errors; updated worker deployed to staging. Verify database objects and immediate delivery test. Requires `pg_net` and two Vault entries; scheduled polling remains the backup. |
+| `20261108213000_add_discord_content_excerpts.sql` | Sanitized post/comment/report excerpts (max 200 characters) in Discord embeds | Local code only; not yet applied to staging. Report details may quote private messages; Discord copies are outside database retention. |
 | `avatar-upload` | Authenticated image validation, decode/re-encode, and publication | Needs Supabase URL/anon/service role environment |
 | `cleanup-avatar-quarantine` | Removes private quarantine objects older than one hour | Requires `AVATAR_CLEANUP_SECRET` and an external schedule |
 | `discord-security-alerts` | Delivers queued outbox events as privacy-minimal Discord embeds | Optional; requires webhook, worker secret, and external schedule |
@@ -153,7 +154,7 @@ npm run build
 & .\node_modules\.bin\supabase.cmd --version
 ```
 
-Confirm that the intended source revision contains version `1.7.0` in
+Confirm that the intended source revision contains version `1.8.0` in
 `package.json` and the root package records in `package-lock.json`.
 Inspect `git status` carefully: do not discard uncommitted changes or include
 unrelated files in a release.
@@ -299,8 +300,8 @@ Then preview the timestamped migrations:
 & .\node_modules\.bin\supabase.cmd db push --linked --dry-run
 ```
 
-Read the preview carefully. For a fresh project it should list twelve files,
-in order: the six existing migrations from October 2026 followed by the six
+Read the preview carefully. For a fresh project it should list thirteen files,
+in order: the six existing migrations from October 2026 followed by the seven
 new migrations from November 2026. If it lists anything unexpected, or
 complains about local/remote history, stop rather than guessing.
 
@@ -314,7 +315,7 @@ Read the CLI confirmation prompt and verify the project/ref and migration
 list before answering `y`. This records the migration versions in Supabase's
 migration history. Do not add `--yes` when you want the extra confirmation.
 
-The six new files are:
+The seven new files are:
 
 1. `supabase/migrations/20261102100000_security_event_pipeline.sql`
 2. `supabase/migrations/20261102110000_avatar_quarantine.sql`
@@ -322,6 +323,7 @@ The six new files are:
 4. `supabase/migrations/20261103210000_expand_security_event_coverage.sql`
 5. `supabase/migrations/20261103213000_discord_rich_security_alerts.sql`
 6. `supabase/migrations/20261108190000_immediate_resilient_discord_delivery.sql`
+7. `supabase/migrations/20261108213000_add_discord_content_excerpts.sql`
 
 ### 4.2 Existing project or uncertain migration history
 
@@ -471,6 +473,32 @@ two-second window. The worker processes alerts one by one, drains due backlog
 for a bounded period, and honors Discord `Retry-After`. No system can deliver
 during an indefinite outage. A Discord acceptance followed by a lost response
 can result in a duplicate on retry; delivery is at-least-once, not exactly-once.
+
+### 5.3 Apply the 1.8.0 content-excerpt update
+
+This update copies up to 200 characters from public feed/forum posts,
+comments, and report details into restricted audit metadata and Discord.
+Report details can include sensitive allegations or a quote copied from a
+private message. The excerpt is also kept in Discord independently of the
+30-day database retention. Keep the Discord channel private; do not test with
+real private-message text or sensitive report details.
+
+1. Confirm audit logging is off and the Dashboard is on the staging project.
+2. Apply `supabase/migrations/20261108213000_add_discord_content_excerpts.sql`
+   in the staging SQL Editor.
+3. Deploy the updated Discord worker:
+
+   ```powershell
+   & .\node_modules\.bin\supabase.cmd functions deploy discord-security-alerts --no-verify-jwt --project-ref <STAGING_PROJECT_REF>
+   ```
+
+4. Briefly enable audit logging and create a clearly labelled synthetic post
+   and comment with harmless test text. Verify the embed shows no more than
+   200 characters and that mentions/URLs cannot ping users or open links.
+   For a report test, use only harmless synthetic details such as
+   `Staging test excerpt`; never paste private conversations.
+5. Turn audit logging off again. Confirm the outbox reports `delivered` and
+   the audit event stores only the bounded excerpt fields.
 
 `cleanup-avatar-quarantine` and `discord-security-alerts` are scheduled
 workers. Their platform JWT verification is disabled because they authenticate
@@ -769,8 +797,10 @@ private conversations or production accounts.
 4. Submit a report, claim/resolve it as staff, add a staff note, perform a
    moderation action, change a test staff role/restriction, and submit a
    repeated identical message. Confirm expected event types and IDs.
-5. Confirm message bodies, report details, staff-note bodies, raw requests,
-   filenames, IPs, and device IDs do not appear in event metadata.
+5. Confirm only the intended excerpts are present: at most 200 characters
+   from public post/comment text and report details. Never test with a real
+   private-message quote. Confirm full messages, staff-note bodies, raw
+   requests, filenames, IPs, and device IDs are absent.
 6. Read the dashboard as an admin and confirm events load.
 7. Read it as a non-admin user and non-admin moderator; access must be
    denied by database policy, not merely hidden by the UI.
@@ -802,10 +832,11 @@ Skip this section when Discord is not enabled.
       the user confirmed Discord messages arrived. A later aggregate query
       confirmed exactly two expected events, `report.created` / `discord_test`
       and `upload.rejected` / `invalid_image`, both marked delivered.
-- [ ] Confirm the alert contains only controlled event metadata and
-      `allowed_mentions` is disabled.
-- [ ] Confirm no message text, report details, note bodies, file bytes, or
-      webhook URL is delivered.
+- [ ] Confirm the alert contains only controlled metadata and `allowed_mentions`
+      is disabled.
+- [ ] Confirm public-content and report excerpts are capped at 200
+      characters, mentions and clickable URLs are neutralized, and no staff
+      notes, file bytes, or webhook URL are delivered.
 - [ ] Simulate a transient failure safely and verify attempt count, backoff,
       retry, and eventual delivery.
 - [ ] Simulate a permanent/exhausted failure and verify dead-letter state and

@@ -7,7 +7,7 @@ moderation-signal, and optional alert work recorded in BACKLINE version
 **1.4.0**. It explains the problem being addressed, how the repository
 implementation is structured, what the main code paths do, what was tested,
 and what still needs to happen before a real deployment. Later entries record
-the 1.5.0 through 1.7.0 changes.
+the 1.5.0 through 1.8.0 changes.
 
 It is not a deployment approval, privacy assessment, or penetration test.
 Initial staging deployment was completed on 2026-11-02: the base schema, all
@@ -39,12 +39,31 @@ Discord embed and snapshots only the actor's display name/username, an
 account-target display name/username where applicable, and a project title
 for project events. The embed uses Discord's native timestamp, shows event
 type/outcome/severity/reason and IDs, and colors denied, failed, or rejected
-outcomes red; other activity is green. It does not include message bodies,
-post/comment text, or raw error messages. These names and titles are copied
+outcomes red; other activity is green. It does not include full message bodies,
+full post/comment text, or raw error messages. These names and titles are copied
 into Discord and persist there independently of the 30-day database retention.
 The migration was applied manually in staging SQL Editor, the updated worker
 was deployed there, and the user confirmed successful embed delivery. Verify
 the audit flag is off after the test; production has not been deployed.
+
+## Discord content excerpts (1.8.0)
+
+At the user's request, 1.8.0 adds a before-insert audit trigger that enriches
+only relevant events with a sanitized excerpt: up to 200 characters from a
+feed post, forum post, comment, or report details. Post titles are bounded to
+100 characters. The service-role claim RPC returns only these allowlisted
+fields to the Edge Function; it does not expose complete rows. The worker
+neutralizes mentions, Markdown formatting, control characters, and clickable
+URL schemes before rendering the excerpt in an embed.
+
+Report details are not necessarily safe just because they are short. A user
+may paste a private-message body or write sensitive allegations there. The
+user explicitly chose to include a capped report-details excerpt; it is
+therefore stored in restricted event metadata and copied to Discord. Discord
+copies are not removed by BACKLINE's 30-day database purge. Keep the webhook
+channel tightly restricted, and do not send especially sensitive report
+details there. The 1.8.0 migration and worker update are local changes only
+until applied/deployed to staging.
 
 ## Faster and more resilient delivery (1.7.0)
 
@@ -68,8 +87,10 @@ excluded from routine retention deletion until an operator resolves them.
 This is at-least-once delivery, not exactly-once: if Discord accepts an embed
 but the response is lost, the retry may duplicate it. A prolonged outage,
 invalid webhook, or unrecoverable payload can still prevent delivery, so
-operators must watch pending counts and dead-letter rows. The migration and
-worker changes are local only until manually applied/deployed to staging.
+Operators must watch pending counts and dead-letter rows. The migration was
+applied manually to staging on 2026-11-08 with no reported SQL errors, and the
+updated worker was deployed. Object verification and an immediate-wakeup
+delivery test remain outstanding.
 
 ## Executive summary
 
@@ -194,7 +215,7 @@ the entire changed row. The audited events include:
 
 | Action | Event(s) | Data intentionally omitted |
 |---|---|---|
-| Report submitted | `report.created` | User-written report details |
+| Report submitted | `report.created` | A capped report-details excerpt is added to Discord by 1.8.0 |
 | Report claimed or resolved | `report.claimed`, `report.resolved` | Staff notes and free-form resolution text |
 | Message submitted | `message.created` | Message body |
 | Repeated identical message burst | `message.risk_flagged` | Message text or a body hash |
@@ -391,7 +412,9 @@ of building a second case-management system. This keeps current authorization
 and workflow controls in place:
 
 - Report submission, claim, and resolution events capture IDs and controlled
-  reason values, not report details.
+  reason values. Version 1.8.0 also adds up to 200 characters of report
+  details to the audit metadata and Discord alert; this can include text a
+  reporter copied from a private message.
 - Moderation and staff access changes are recorded with their actor and
   target.
 - The database function for reported-message evidence continues to require
@@ -440,8 +463,12 @@ failure categories rather than raw response bodies or webhook secrets.
 
 The message includes severity, event type/outcome, event ID, event time,
 controlled reason code, and internal actor/target identifiers when present.
-It does not include message bodies, report details, staff notes, uploaded
-files, or public avatar URLs.
+The 1.8.0 worker also includes bounded feed/forum/comment text and report
+details excerpts when available. It never fetches private-message bodies
+directly, but report excerpts may contain text a user pasted from a private
+message; that possible disclosure is why report excerpts are tightly capped
+and the channel must be restricted. Staff notes, uploaded files, and public
+avatar URLs are not sent.
 
 Discord is optional. If it is not configured, alerts remain in the outbox and
 normal application actions do not wait for Discord. A production owner still

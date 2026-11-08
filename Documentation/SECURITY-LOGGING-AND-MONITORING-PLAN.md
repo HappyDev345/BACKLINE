@@ -4,9 +4,11 @@
 
 This document records the design and implementation status for BACKLINE's
 security event logging, upload safety, suspicious-content handling, evidence
-preservation, and optional Discord alerts. The 1.5.0 event coverage and 1.6.0
-rich Discord presentation changes are deployed to staging. The 1.7.0
-immediate-wakeup and resilient-delivery changes are local and not yet deployed.
+preservation, and optional Discord alerts. The 1.5.0 event coverage, 1.6.0
+rich Discord presentation, and 1.7.0 immediate-wakeup changes are deployed to
+staging. The user confirmed immediate alert delivery and that all tested
+alerts were delivered. The 1.8.0 content-excerpt change is local and not yet
+deployed.
 On 2026-11-02, the base schema, initial nine migrations, and four Edge
 Functions were deployed to a separate staging project and checked.
 The frontend was connected locally and a signed-in test avatar upload
@@ -51,29 +53,44 @@ The requested Discord presentation is a compact embed: event-time display
 name and username for the actor (and account target when available), the
 project title for project events, event type/reason/outcome, and Discord's
 native timestamp. Ordinary activity is green; denied, failed, and rejected
-outcomes are red. Message bodies, post/comment text, and raw error messages
-remain excluded. The migration and worker have been deployed to staging, and
-the user confirmed an embed arrived successfully. Production deployment has
-not occurred.
+outcomes are red. Full private-message bodies, staff notes, and raw error
+messages remain excluded. The migration and worker have been deployed to
+staging, and the user confirmed an embed arrived successfully. Production
+deployment has not occurred.
 
 Version 1.7.0 adds a best-effort `pg_net` wake-up whenever an event is added to
-the alert outbox. The durable outbox and the existing scheduled worker remain
-the recovery path if that wake-up fails. Delivery is globally paced to at most
-four claims in a rolling two-second window, processes one alert at a time,
-honors Discord `Retry-After`, and drains due backlog in bounded worker runs.
-Alerts that fail five times enter a visible dead-letter state and are protected
-from the routine 30-day purge until an operator resolves them. This is
-at-least-once delivery: if Discord accepts a message but the response is lost,
-a retry may produce a duplicate. No alert system can promise delivery during
-indefinite provider outage; queue and dead-letter monitoring remain necessary.
+the alert outbox. The migration was applied to staging on 2026-11-08 without
+reported SQL errors, and the updated worker was deployed there. The durable
+outbox and existing scheduled worker remain the recovery path if that wake-up
+fails. Verify the new database objects and immediate-delivery behavior before
+considering this rollout complete. Delivery is globally paced to at most four
+claims in a rolling two-second window, processes one alert at a time, honors
+Discord `Retry-After`, and drains due backlog in bounded worker runs. Alerts
+that fail five times enter a visible dead-letter state and are protected from
+the routine 30-day purge until an operator resolves them. This is at-least-once
+delivery: if Discord accepts a message but the response is lost, a retry may
+produce a duplicate. No alert system can promise delivery during indefinite
+provider outage; queue and dead-letter monitoring remain necessary.
+
+Version 1.8.0 adds a sanitized excerpt of up to 200 characters from public
+feed/forum posts and comments, plus report details, to Discord embeds. Post
+titles may also be shown. These excerpts are stored in the restricted audit
+event metadata and copied to Discord. Report details may quote private
+messages or include sensitive allegations; sending excerpts to Discord makes
+them available under Discord's channel membership and retention rather than
+BACKLINE's 30-day purge. Do not send sensitive report details, and restrict
+the alert channel accordingly. The 1.8.0 migration and worker update are local
+and not yet deployed to staging.
 
 The following limitations and release gates remain:
 
 - Staging has the base schema, event-coverage SQL, and rich-embed SQL applied.
   Those migrations were run manually, so reconcile migration history before
   using `supabase db push`. The 1.7.0 immediate-wakeup migration and updated
-  worker remain undeployed. Complete the remaining staging checks before
-  production rollout.
+  worker have been applied/deployed to staging; database-object verification
+  and immediate-delivery testing remain. Complete the remaining staging checks
+    before production rollout. The 1.8.0 excerpt migration and worker update are
+    local only and must be applied/deployed to staging before testing excerpts.
 - `security.configuration.audit_enabled` defaults to `false`. Keep it disabled
   until the audience/privacy review and routine-event retention period have
   been approved. The server-side message rate limit is active independently.
@@ -308,9 +325,12 @@ Consider recording events such as:
 - A moderation action and any subsequent restore.
 - Content access or evidence access by staff where the content is restricted.
 
-Do not duplicate all public comments, posts, or private messages into the
-security log. Normal application records already hold content. Link to the
-record by ID when an investigation or alert needs it.
+Do not duplicate full public comments, posts, or private messages into the
+security log. Normal application records already hold content. The chosen
+Discord alert policy includes only a 200-character excerpt from public
+feed/forum posts and comments; report details are also capped at 200
+characters and may contain private-message text supplied by a reporter. Keep
+the alert channel restricted and review its retention.
 
 ### Upload and storage activity
 
