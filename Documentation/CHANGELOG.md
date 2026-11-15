@@ -3,6 +3,12 @@
 Notable changes to BACKLINE are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [1.8.1] - 2026-11-15
+
+- Replaced gradients on action buttons with a solid blue background and
+  softened their shadows. Gradients on text and decorative elements are
+  unchanged.
+
 ## [1.8.0] - 2026-11-08
 
 - Added sanitized 200-character excerpts from feed posts, forum posts,

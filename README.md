@@ -171,10 +171,11 @@ The rich-embed migration and updated Discord worker have now been deployed to
 staging, and the user confirmed that an embed arrived successfully. A Vercel
 Preview uses staging-only settings; sign-in and avatar update have passed.
 Staging cleanup and Discord schedules are configured. Verify audit logging is
-off after testing. The 1.7.0 immediate-wakeup migration and worker have now
-been applied/deployed to staging; verify database objects and immediate
-delivery there. The 1.8.0 content-excerpt change is local and is not deployed.
-Nothing has been deployed to production. For the
+off after testing. The 1.7.0 immediate-wakeup migration and worker have been
+applied/deployed to staging. The 1.8.0 content-excerpt migration and updated
+worker have also been applied/deployed to staging, and the user confirmed the
+content appears in Discord. The 1.8.1 button-style update is local and has not
+been deployed. Nothing has been deployed to production. For the
 PowerShell CLI setup, fresh-project bootstrap, staging checks, and safe
 production sequence, follow the
 [security deployment runbook](Documentation/SECURITY-LOGGING-DEPLOYMENT-RUNBOOK.md).

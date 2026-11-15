@@ -5,10 +5,10 @@
 This document records the design and implementation status for BACKLINE's
 security event logging, upload safety, suspicious-content handling, evidence
 preservation, and optional Discord alerts. The 1.5.0 event coverage, 1.6.0
-rich Discord presentation, and 1.7.0 immediate-wakeup changes are deployed to
-staging. The user confirmed immediate alert delivery and that all tested
-alerts were delivered. The 1.8.0 content-excerpt change is local and not yet
-deployed.
+rich Discord presentation, 1.7.0 immediate-wakeup changes, and 1.8.0
+content-excerpt changes are deployed to staging. The user confirmed immediate
+alert delivery, delivery of tested alerts, and that excerpts appear in
+Discord. The 1.8.1 button-style update is local and not yet deployed.
 On 2026-11-02, the base schema, initial nine migrations, and four Edge
 Functions were deployed to a separate staging project and checked.
 The frontend was connected locally and a signed-in test avatar upload
@@ -34,6 +34,64 @@ upload while audit was temporarily enabled. Nothing has been deployed to
 production, and broader access and
 workflow checks remain outstanding. Staging avatars are in a public-read
 bucket, so only non-identifying test images should be used.
+
+The user also inspected all Supabase request rows captured during a Staging
+Preview page reload on 2026-11-15. Neither worker-secret header name appeared,
+and no Discord request appeared. This covers that captured session only; it
+does not establish the behavior of every application path.
+
+On 2026-11-15, the user confirmed `audit_enabled = false` after a synthetic
+report test. A normal user and a temporary feed moderator each saw zero audit
+rows and had no insert privilege; a temporary admin loaded the event screen.
+Both temporary roles were removed. The synthetic report alert was delivered
+after one attempt, its excerpt was 15 characters, and the checked prohibited
+metadata keys were absent. A later read-only key-name screen found zero
+suspicious metadata keys across 20 Staging events; it did not inspect values
+or Discord payloads. The malformed avatar test returned HTTP 415, the
+quarantine bucket was confirmed private, and no Storage write policies were
+present. The hourly quarantine schedule is active and its latest run
+succeeded. Synthetic feed, forum, and comment excerpts were also verified
+against the length caps and checked metadata keys; the Discord alerts arrived
+with mentions suppressed, URLs neutralized, and markdown escaped. A valid
+synthetic 1x1 PNG and small synthetic JPEG/WebP passed the Staging avatar
+processor; the JPEG/WebP avatars updated successfully, and a metadata-only
+check showed the latest media object was PNG. The temporary quarantine copy
+from the PNG upload was removed. A malformed synthetic PNG that passed
+signature/dimension inspection but failed local decoding was rejected by the
+Staging avatar flow on retry; the avatar stayed unchanged and no recent
+quarantine object remained. A PNG renamed with a `.jpg` extension was also
+rejected in Staging with no avatar change or recent quarantine object.
+The frontend also rejected a synthetic text file before invoking the upload
+function. The frontend rejected a 5 MiB + 1 byte test image before invoking
+the upload function; this verifies the frontend guard, not the server-side
+streaming-size cap. A valid 4097×1 PNG left the avatar unchanged; the upload
+counter incremented and no quarantine object appeared, consistent with
+rejection at the server dimension check. The UI used its generic error
+message. A valid 4096×2049 PNG also left the avatar unchanged; the counter
+advanced and no recent quarantine object appeared, consistent with rejection
+above the 8-megapixel cap. Server-side dimension and pixel-limit rejection
+are therefore verified; large accepted-image resizing, server streaming-size
+enforcement, quota exhaustion, and replacement-failure tests remain. The
+separate scheduled-cleanup test object was
+uploaded at 05:51:48 UTC; at 07:22:36 UTC it was absent following the
+successful 07:00 UTC run, confirming scheduled deletion after the one-hour
+age threshold. Whether deletion wrote a `quarantine_expired` audit event was
+not checked. In a separate recent-object test on 2026-11-15, a read-only
+count showed zero expired and zero recent objects. The user uploaded a
+synthetic 69-byte PNG to the Staging quarantine bucket and manually invoked
+the cleanup worker through Vault-backed `pg_net`. It returned HTTP 200 with
+`inspected: 0`, `removed: 0`, and `more_pending: false`; the user confirmed
+the fresh object remained and then deleted only that test object, leaving the
+bucket empty. Invalid dummy worker headers were also rejected with HTTP 401
+for both Staging workers; no real secret was sent. Account-deletion and
+delivery-failure tests remain outstanding.
+
+The user confirmed minors may use BACKLINE. The intended routine audit
+retention is 30 days, but report/case evidence and Discord retention remain
+undecided. The project owner will monitor Staging alerts and operational
+failures. Until appropriate safeguarding/privacy review and the remaining
+retention decisions are complete, routine audit collection stays off outside
+brief synthetic Staging tests and Production rollout is deferred.
 
 For a detailed explanation of the implemented components, see the
 [security implementation logbook](./SECURITY-LOGGING-IMPLEMENTATION-LOGBOOK.md).
@@ -78,19 +136,21 @@ titles may also be shown. These excerpts are stored in the restricted audit
 event metadata and copied to Discord. Report details may quote private
 messages or include sensitive allegations; sending excerpts to Discord makes
 them available under Discord's channel membership and retention rather than
-BACKLINE's 30-day purge. Do not send sensitive report details, and restrict
-the alert channel accordingly. The 1.8.0 migration and worker update are local
-and not yet deployed to staging.
+BACKLINE's 30-day purge. The user confirmed the staging Discord channel is
+visible only to them and accepted this content scope. The 1.8.0 migration and
+worker are deployed to staging, and the user confirmed excerpts arrive. The
+1.8.1 button-style update is local.
 
 The following limitations and release gates remain:
 
 - Staging has the base schema, event-coverage SQL, and rich-embed SQL applied.
   Those migrations were run manually, so reconcile migration history before
   using `supabase db push`. The 1.7.0 immediate-wakeup migration and updated
-  worker have been applied/deployed to staging; database-object verification
-  and immediate-delivery testing remain. Complete the remaining staging checks
-    before production rollout. The 1.8.0 excerpt migration and worker update are
-    local only and must be applied/deployed to staging before testing excerpts.
+  worker have been applied/deployed to staging, and immediate delivery was
+  confirmed. The 1.8.0 excerpt migration and worker are also deployed to
+  staging, and excerpts were confirmed in Discord. Production deployment and
+  broader access/workflow checks remain. The 1.8.1 button-style update is
+  frontend-only and has not been deployed.
 - `security.configuration.audit_enabled` defaults to `false`. Keep it disabled
   until the audience/privacy review and routine-event retention period have
   been approved. The server-side message rate limit is active independently.
@@ -414,10 +474,13 @@ indefinite availability. Define deletion, archival, and legal-hold procedures.
 Routine-event and case-evidence retention periods require approval before
 production collection. The audience and minor-safeguarding status also require
 review; until then, keep routine audit logging disabled, minimize personal
-data, and do not send private content to Discord. Quarantined uploads are
-deleted after one hour by the scheduled cleanup worker, but this operational
-default still requires production review. The worker processes at most 1,000
-expired objects per invocation; rerun it promptly when `more_pending` is true.
+data, and keep routine audit logging off outside brief synthetic Staging
+tests. The user approved capped report-detail excerpts in the private Staging
+Discord channel; this is not approval for Production. Full private-message
+bodies remain excluded. Quarantined uploads are deleted after one hour by the
+scheduled cleanup worker, but this operational default still requires
+production review. The worker processes at most 1,000 expired objects per
+invocation; rerun it promptly when `more_pending` is true.
 
 ## Unsafe upload prevention
 
@@ -762,12 +825,14 @@ Supabase project:
 The implementation choices above are recorded. The following still require
 operator or privacy review before production:
 
-- Confirm whether minors may use BACKLINE and complete any required privacy
-  and safeguarding review.
-- Approve retention and deletion periods for routine audit events and
-  case-related evidence; document any legal-hold process.
-- Assign incident response ownership, escalation paths, and periodic access
-  and retention reviews.
+- Minors may use BACKLINE; complete the appropriate privacy and safeguarding
+  review before Production collection.
+- The intended routine audit-event retention is 30 days. Approve report/case
+  evidence and Discord retention/deletion periods, and document any legal-hold
+  process before Production collection.
+- The project owner will monitor Staging alerts and failures. Confirm
+  Production incident ownership, escalation paths, and periodic access and
+  retention reviews.
 - Review the private Discord channel, membership, response owner, and alert
   policy before configuring its webhook.
 - Apply migrations, deploy functions, configure secrets and schedules, and

@@ -74,8 +74,8 @@
 }
 
 .primary {
-  background: linear-gradient(135deg, #356cff, #7555ff);
-  box-shadow: 0 10px 24px rgba(67, 83, 255, .22);
+  background: #4f7cff;
+  box-shadow: 0 4px 14px rgba(79, 124, 255, .18);
 }
 
 .secondary {

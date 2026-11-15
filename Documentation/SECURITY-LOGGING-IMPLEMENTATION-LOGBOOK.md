@@ -62,8 +62,18 @@ user explicitly chose to include a capped report-details excerpt; it is
 therefore stored in restricted event metadata and copied to Discord. Discord
 copies are not removed by BACKLINE's 30-day database purge. Keep the webhook
 channel tightly restricted, and do not send especially sensitive report
-details there. The 1.8.0 migration and worker update are local changes only
-until applied/deployed to staging.
+details there. The user confirmed the staging channel is visible only to them
+and accepted this content scope. The 1.8.0 migration and worker have been
+applied/deployed to staging, and the user confirmed the excerpts arrive in
+Discord. Production has not been deployed.
+
+## Button styling update (1.8.1)
+
+The user asked to remove gradients from action buttons, including sign-up and
+new-project actions, while keeping gradients on text and headings. Shared
+buttons and primary buttons on the landing and About pages now use solid blue
+fills with softer shadows. This visual-only frontend change does not require a
+database migration. It is not yet deployed.
 
 ## Faster and more resilient delivery (1.7.0)
 
@@ -500,7 +510,9 @@ The following local and staging checks passed:
 | Check | Result | What it establishes |
 |---|---|---|
 | `npm run build` | Passed | Vite can produce the production frontend bundle. |
-| Deno lint on touched Edge Functions and image tests | Passed | No lint findings in the selected TypeScript/Deno files. |
+| Frontend build secret-identifier scan | Passed (source/build only) | On 2026-11-15, frontend source and local `.env*` files referenced only the public Supabase URL and anon-key variables; the built JavaScript had no service-role, webhook, or worker-secret identifiers. |
+| Staging Preview browser network inspection | Passed (user-confirmed; captured traffic only) | On 2026-11-15, the user reviewed all Supabase request rows captured during a page reload and found neither `x-avatar-cleanup-secret` nor `x-security-worker-secret`; no Discord webhook request appeared. No header values or tokens were shared. This does not cover every application path or session. |
+| Deno lint on touched Edge Functions and image tests | Passed with one intentional rule excluded | With Deno 2.9.8, the default lint run flags `no-control-regex` for the Discord worker's existing control-character sanitization regex. Excluding only that rule yields a clean lint result for all six selected files; no code was changed for this check. |
 | Deno check on upload, cleanup, Discord, deletion, and image-test files | Passed | Those files type-check against their Deno imports and APIs. |
 | Deno image tests | 5 passed | PNG/JPEG/WebP preflight, dimension bounds, actual ImageScript decoding, and normalized PNG signatures. |
 | PGlite migration smoke tests | Passed | The three new SQL migrations ran in a local PostgreSQL-compatible in-memory harness; tested upload quota, cleanup batching, sanitized upload-event metadata, report audit, message rate limits, spoofed client timestamps, outbox claim, and completion. |
@@ -510,7 +522,17 @@ The following local and staging checks passed:
 | Staging Edge Function checks | Passed | Four functions active; JWT verification is enabled for `avatar-upload` and `delete-account`, disabled for the two secret-header workers. |
 | Unauthenticated function smoke tests | Passed | Avatar upload/account deletion returned 401; workers returned 503 while their required secrets are intentionally unset. |
 | Signed-in staging avatar test | Passed | A new staging test account completed an avatar upload through the frontend; aggregate Storage counts showed one public `media` object and zero quarantine objects. |
-| Staging quarantine cleanup schedule | Passed | The hourly `pg_cron` job was created. A manual `pg_net` invocation returned HTTP 200 with `inspected: 0`, `removed: 0`, and `more_pending: false`; no expired quarantine objects were waiting for deletion. |
+| Staging avatar decoder-failure test | Passed (user-confirmed) | A synthetic 24-byte PNG passed signature/dimension inspection but failed local `Image.decode`; the Staging retry rejected it, the avatar stayed unchanged, and the user confirmed zero recent quarantine objects. |
+| Staging avatar MIME-mismatch test | Passed (user-confirmed) | A valid synthetic PNG with a `.jpg` extension was rejected in Staging, the avatar stayed unchanged, and the user confirmed zero recent quarantine objects. |
+| Staging avatar unsupported-type test | Passed (user-confirmed) | The Staging avatar UI rejected a synthetic text file and left the avatar unchanged. Source review confirms the client returns before invoking the upload function. |
+| Staging avatar frontend size-limit test | Passed (user-confirmed) | A synthetic 5 MiB + 1 byte PNG was rejected with the expected “Choose an image smaller than 5 MB” message, with no avatar change. Source review confirms the frontend returns before invoking the upload function; this does not exercise the server streaming-size cap. |
+| Staging avatar dimension-limit test | Passed (metadata-confirmed) | A valid synthetic 4097×1 PNG left the avatar unchanged; the per-account upload counter advanced from 5 to 6 while the recent quarantine count remained zero. The UI displayed its generic safe error message. |
+| Staging avatar pixel-limit test | Passed (metadata-confirmed) | A valid synthetic 4096×2049 PNG left the avatar unchanged; the per-account upload counter advanced from 6 to 7 while the recent quarantine count remained zero. |
+| Staging avatar replacement | Passed (user-confirmed) | Sequential synthetic JPEG and WebP uploads each updated the test profile; the aggregate after replacement showed only the latest media object. The forced old-object removal-failure path remains untested. |
+| Discord payload safeguards | Passed (source and Staging) | Worker source builds embeds only from typed/allow-listed event fields and sets `allowed_mentions: { parse: [] }`. The user confirmed the synthetic `@everyone` test caused no ping; delivered examples neutralized URLs and escaped markdown. Webhook URLs, file bytes, and staff-note bodies are not included in the embed builder. |
+| Staging worker invalid-secret checks | Passed | Deliberately invalid dummy headers returned HTTP 401 `Not authorized.` for both cleanup and Discord workers. Earlier unauthenticated smoke tests returned HTTP 503 while required worker secrets were unset. No real secret was sent. |
+| Staging quarantine cleanup schedule | Schedule and deletion passed | The hourly `pg_cron` job was active. A synthetic object was uploaded at 05:51:48 UTC on 2026-11-15. At 07:22:36 UTC the object count was zero and the latest run had succeeded at 07:00 UTC, after the object became eligible for cleanup. Whether a `quarantine_expired` audit event was written was not checked. |
+| Staging quarantine recent-object preservation | Passed (user-confirmed) | On 2026-11-15, a read-only count found zero expired and zero recent objects. The user uploaded the existing 69-byte synthetic PNG to the bucket root and manually invoked the worker through Vault-backed `pg_net`. It returned HTTP 200 with `inspected: 0`, `removed: 0`, and `more_pending: false`; the user confirmed the object remained. The user then deleted only that test object and confirmed the bucket was empty. |
 | Hosted Vercel Preview sign-in | Passed (user-confirmed) | Vercel Preview uses Preview-scoped staging Supabase settings; the user confirmed a staging account can sign in. This does not verify broader app behavior or access policies. |
 | Hosted Vercel Preview avatar update | Passed (user-confirmed) | The user confirmed the sample-data banner was absent and a signed-in profile avatar update succeeded in the hosted Preview. Avatar files in the public `media` bucket may be publicly readable; use only a non-identifying test image. |
 | Discord staging delivery | Passed (user-confirmed) | A synthetic `report.created` event was written with audit temporarily enabled in one SQL transaction, audit was turned off, then a manual `pg_net` invocation returned HTTP 200. An invalid-image avatar attempt also reached the backend and recorded `upload.rejected` with reason `invalid_image` while audit was temporarily enabled, despite the browser showing a rejection. An aggregate query confirmed exactly those two expected alert events, both `delivered`; the user confirmed Discord messages arrived. |

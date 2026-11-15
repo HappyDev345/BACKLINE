@@ -24,8 +24,21 @@ exactly two expected, delivered staging events: the synthetic
 the invalid avatar test. The browser displayed rejection, but the backend
 also processed it and recorded the event while audit logging was temporarily
 on. Both events were delivered, reconciling the two-alert worker response.
-Administrator and database-level role/access tests and other staging checks
-remain outstanding. Nothing has been deployed to production.
+On 2026-11-15, the user confirmed audit logging is off after testing. Read
+permissions were verified for normal and feed-moderator roles; both saw zero
+audit rows and had no insert privilege, while a temporary Staging admin loaded
+the admin event screen. Both temporary roles were removed. A synthetic report
+alert was delivered after one attempt; its excerpt measured 15 characters and
+the checked prohibited metadata keys were absent. The quarantine bucket is
+private, and no Storage `INSERT`, `UPDATE`, or `ALL` policies were present.
+Additional Staging avatar tests confirmed valid JPEG/WebP processing,
+unsupported-type and MIME-mismatch rejection, and malformed-image rejection
+with no recent quarantine residue. The scheduled cleanup worker deleted an
+expired synthetic object, and a separate manual run left a fresh synthetic
+object untouched. Frontend size and server-side dimension/pixel-limit
+rejections are verified. Large accepted-image resizing, the server-side
+streaming-size cap, quota exhaustion, replacement-failure, account-deletion,
+and delivery-failure tests remain. Nothing has been deployed to production.
 
 Routine audit logging must remain disabled until the privacy/safeguarding and
 retention gates in this document are approved. Do not treat this guide as
@@ -73,13 +86,13 @@ For current scope and outstanding design choices, read the
 | `20261102120000_security_alert_outbox.sql` | Restricted event queue and claim/complete functions for optional alerts | Queue exists; the staging Discord webhook and worker are configured and manually tested |
 | `20261103210000_expand_security_event_coverage.sql` | Project/feed/forum/comment audit events, authenticated client error events, all-event Discord queueing, and 30-day log purge function | Applied manually in staging SQL Editor on 2026-11-03; content event alerts were verified delivered. Confirm migration history separately. |
 | `20261103213000_discord_rich_security_alerts.sql` | Event-time display names/usernames, project-title metadata, and rich Discord embeds | Applied manually in staging SQL Editor; rich-embed delivery confirmed by the user. Confirm migration history separately. |
-| `20261108190000_immediate_resilient_discord_delivery.sql` | Immediate best-effort wake-up, Discord-aware send pacing/retries, backlog draining, and retention protection for undelivered alerts | Applied manually in staging SQL Editor on 2026-11-08 with no reported errors; updated worker deployed to staging. Verify database objects and immediate delivery test. Requires `pg_net` and two Vault entries; scheduled polling remains the backup. |
-| `20261108213000_add_discord_content_excerpts.sql` | Sanitized post/comment/report excerpts (max 200 characters) in Discord embeds | Local code only; not yet applied to staging. Report details may quote private messages; Discord copies are outside database retention. |
-| `avatar-upload` | Authenticated image validation, decode/re-encode, and publication | Needs Supabase URL/anon/service role environment |
-| `cleanup-avatar-quarantine` | Removes private quarantine objects older than one hour | Requires `AVATAR_CLEANUP_SECRET` and an external schedule |
-| `discord-security-alerts` | Delivers queued outbox events as privacy-minimal Discord embeds | Optional; requires webhook, worker secret, and external schedule |
-| `delete-account` | Removes account media from both buckets before account removal | Must be redeployed with the changed implementation |
-| Frontend | Sends connected-mode avatars to the new upload function and exposes admin event view | Requires matching Supabase project URL/anon key at frontend build/deploy |
+| `20261108190000_immediate_resilient_discord_delivery.sql` | Immediate best-effort wake-up, Discord-aware send pacing/retries, backlog draining, and retention protection for undelivered alerts | Applied manually in staging SQL Editor on 2026-11-08; updated worker deployed. Immediate delivery and scheduled polling were confirmed. Requires `pg_net` and the two configured Vault entries; production rollout remains separate. |
+| `20261108213000_add_discord_content_excerpts.sql` | Sanitized post/comment/report excerpts (max 200 characters) in Discord embeds | Applied manually and worker deployed to staging; excerpt delivery confirmed. Report details may quote private messages; Discord copies are outside database retention. |
+| `avatar-upload` | Authenticated image validation, decode/re-encode, and publication | Deployed to staging; valid PNG/JPEG/WebP uploads and normalization were verified. Unsupported type, MIME mismatch, malformed-image, frontend size-limit, server dimension, and pixel-limit rejection passed. Large accepted-image resizing, server streaming-size cap, quota exhaustion, and replacement-failure checks remain. |
+| `cleanup-avatar-quarantine` | Removes private quarantine objects older than one hour | Staging secret and hourly schedule are configured; scheduled expired-object deletion and fresh-object preservation passed. Invalid-secret checks passed. Batch-bound and scheduler log-redaction tests remain. |
+| `discord-security-alerts` | Delivers queued outbox events as privacy-minimal Discord embeds | Staging webhook/worker configuration and one-minute schedule are active; delivery and invalid-secret checks passed. Retry, dead-letter, and outage tests remain. |
+| `delete-account` | Removes account media from both buckets before account removal | Staging deployment and implementation version should be verified before dedicated account-deletion tests. |
+| Frontend | Sends connected-mode avatars to the new upload function and exposes admin event view | Vercel Preview uses staging settings; sign-in and avatar update were confirmed. Version 1.8.1 button styling is local and not deployed. |
 
 ## Phase 0 — Obtain approval and designate owners
 
@@ -90,6 +103,8 @@ uses real people or meaningful personal information.
 
 - Confirm the intended user audience and whether minors may sign up or use
   the service.
+- Current decision: the user confirmed minors may use BACKLINE. Complete the
+  appropriate privacy/safeguarding review before any Production collection.
 - Ask the appropriate privacy/safeguarding owner to review the event fields,
   staff visibility, evidence handling, avatar processing, and optional
   external Discord delivery.
@@ -113,6 +128,11 @@ default is not itself a complete retention policy. The project still needs
 an owner for legal holds, deletion verification, and response to failed
 cleanup.
 
+Current decisions: 30 days is the intended retention for routine audit
+events; report/case evidence and Discord retention remain undecided. Routine
+audit logging stays off except for brief synthetic Staging tests until the
+appropriate review approves ongoing collection.
+
 ### 0.3 Incident and operations ownership
 
 Name a person or team who will:
@@ -125,6 +145,10 @@ Name a person or team who will:
 
 If no one owns these responsibilities, do not enable routine collection or
 Discord delivery.
+
+Current Staging owner: the project owner will review alerts and respond to
+queue, dead-letter, audit-write, and cleanup failures. Confirm Production
+ownership separately.
 
 ## Phase 1 — Prepare a safe target environment
 
@@ -154,7 +178,7 @@ npm run build
 & .\node_modules\.bin\supabase.cmd --version
 ```
 
-Confirm that the intended source revision contains version `1.8.0` in
+Confirm that the intended source revision contains version `1.8.1` in
 `package.json` and the root package records in `package-lock.json`.
 Inspect `git status` carefully: do not discard uncommitted changes or include
 unrelated files in a release.
@@ -752,27 +776,87 @@ private conversations or production accounts.
 
 ### 9.1 Authentication and configuration
 
-- [ ] An unauthenticated avatar request is rejected.
-- [ ] A valid authenticated test account can reach the upload processor.
-- [ ] A suspended test account cannot update its avatar.
-- [ ] Missing worker secret returns an explicit unavailable response; an
-      incorrect worker header is rejected.
-- [ ] No service-role key, webhook URL, or worker secret appears in browser
-      source, network requests to the frontend, or build output.
-- [ ] Check the staging Auth email-confirmation setting explicitly. The
-      first staging test account signed up without a confirmation step; do
-      not assume that behavior matches the intended production policy.
+- [x] An unauthenticated avatar request is rejected. The recorded Staging
+      smoke test returned HTTP 401 for `avatar-upload`.
+- [x] A valid authenticated test account can reach the upload processor. The
+      synthetic PNG upload was accepted through `avatar-upload` and updated
+      the Staging test account's avatar on 2026-11-15.
+- [ ] A suspended test account cannot update its avatar. The function's
+      source checks suspension before upload and returns HTTP 403, but the
+      live Staging test is pending; no in-app admin account is currently
+      available to perform the supported suspend/reinstate flow.
+- [x] A missing worker secret returns an explicit unavailable response. The
+      recorded unauthenticated Staging smoke test returned HTTP 503 while
+      worker secrets were intentionally unset.
+- [x] An incorrect worker header is rejected. On 2026-11-15, deliberately
+      invalid dummy headers returned HTTP 401 `Not authorized.` from both
+      Staging workers; no real secret was sent.
+- [x] No service-role key, webhook URL, or worker secret identifier appears
+      in frontend source or the production build. On 2026-11-15, the frontend
+      referenced only `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`; the
+      local `.env*` files contained only those variable names, and a scan of
+      the built JavaScript found no service-role, webhook, or worker-secret
+      identifiers. The anon key is intended to be public.
+- [x] Inspect captured browser requests for server-only credentials. On
+      2026-11-15, the user reviewed all Supabase request rows captured during
+      a Staging Preview reload; neither worker-secret header name appeared,
+      and no Discord webhook request appeared. This was a check of that
+      session's captured traffic, not every possible application path. No
+      header values or tokens were shared.
+- [x] Check the Staging Auth email-confirmation setting explicitly. On
+      2026-11-15, the Dashboard showed **Confirm email enabled**. This records
+      the current setting only; it does not verify the signup flow or establish
+      the intended Production policy.
 
 ### 9.2 Avatar handling
 
-- [ ] Upload a small valid JPEG, PNG, and WebP; each is accepted and publicly
-      served as a normalized PNG.
-- [ ] Upload an unsupported type and a file with a mismatched declared type;
-      both are rejected without publishing original bytes.
-- [ ] Upload a malformed file with a plausible image MIME type; decoder
-      rejection leaves no public object.
-- [ ] Test an image over 5 MiB, dimensions over 4096, and an image over 8
-      megapixels; each is rejected.
+- [x] Upload a small valid JPEG, PNG, and WebP; each is accepted and publicly
+      served as a normalized PNG. On 2026-11-15, the synthetic 1x1 PNG and
+      synthetic 2x2 JPEG/WebP uploads were accepted through `avatar-upload`
+      and updated the test account's avatar. A metadata-only aggregate after
+      the sequential JPEG/WebP uploads found one recent `media` object, with
+      PNG MIME type and no other/untyped objects; the later avatar replaced
+      the earlier object. Local Deno tests also confirmed JPEG, PNG, and WebP
+      decoding and PNG normalization. The fixtures were blank, so the JPEG
+      appeared black and the WebP transparent; this was expected.
+- [x] Upload an unsupported type; confirm it is rejected without publishing
+      original bytes. On 2026-11-15, the synthetic text file was rejected by
+      the Staging avatar UI and the avatar remained unchanged. Source review
+      confirms this client-side check returns before invoking `avatar-upload`.
+- [x] Upload a file with a mismatched declared type. On 2026-11-15, a
+      synthetic valid PNG named `.jpg` was rejected in Staging, the avatar
+      remained unchanged, and a read-only check found zero recent objects in
+      `avatar-quarantine`.
+- [x] Upload a malformed file with a plausible image MIME type. On
+      2026-11-15, a synthetic non-image `.png` was rejected by the Staging
+      `avatar-upload` endpoint with HTTP 415 and the avatar stayed unchanged.
+      The invalid-signature check happens before quarantine/publication.
+- [x] Upload one valid synthetic PNG. On 2026-11-15, the 1x1 test image was
+      accepted through `avatar-upload`; the Staging account avatar updated,
+      the new `media` object was PNG, and the upload processor's temporary
+      quarantine object was removed. The separate manually uploaded
+      cleanup-test object remained in quarantine.
+- [x] Test a malformed file that passes signature inspection but fails safe
+      image decoding. On 2026-11-15, the synthetic 24-byte PNG passed local
+      2x2 signature/dimension inspection but failed `Image.decode`. On the
+      Staging retry, the avatar flow rejected the file, the avatar remained
+      unchanged, and a read-only check found zero recent objects in
+      `avatar-quarantine`.
+- [x] Confirm the frontend rejects images over 5 MiB. On 2026-11-15, the
+      synthetic 5 MiB + 1 byte PNG was rejected with “Choose an image smaller
+      than 5 MB,” and the avatar stayed unchanged. Source review confirms
+      this returns before invoking `avatar-upload`; the server streaming-size
+      limit has not been independently exercised.
+- [x] Test a dimension over 4096 pixels. On 2026-11-15, a valid synthetic
+      4097×1 PNG left the avatar unchanged. The Staging upload counter
+      increased from 5 to 6 and the recent quarantine count stayed at zero,
+      consistent with the server rejecting it before quarantine. The UI
+      showed its generic safe error message rather than the specific 413 text.
+- [x] Test an image within the per-side limit but over 8 megapixels. On
+      2026-11-15, a valid synthetic 4096×2049 PNG left the avatar unchanged;
+      the Staging upload counter advanced from 6 to 7 and the recent
+      quarantine count remained zero. The UI showed its generic safe error
+      message, consistent with server rejection before quarantine.
 - [ ] Confirm large accepted images are resized to at most 1024 pixels on
       either side.
 - [ ] Attempt more than 10 uploads within the quota window; excess requests
@@ -780,10 +864,18 @@ private conversations or production accounts.
 - [ ] Confirm the original input is removed from private quarantine after a
       completed/rejected processing attempt, or that cleanup failures are
       surfaced for the operator.
-- [ ] Confirm direct authenticated writes to `media` are denied under the
-      new policy set.
-- [ ] Confirm replacing an avatar updates the profile and that failure to
-      remove a previous object is visible in sanitized operational logs.
+- [x] Confirm `avatar-quarantine` is private. On 2026-11-15, the Staging
+      bucket query returned `public = false` and a 5 MiB limit; `media` is
+      public as intended.
+- [x] Confirm direct authenticated writes to `media` are denied under the
+      new policy set. On 2026-11-15, the Staging `pg_policies` check returned
+      no `INSERT`, `UPDATE`, or `ALL` policies on `storage.objects`.
+- [x] Confirm replacing an avatar updates the profile. On 2026-11-15, the
+      synthetic JPEG and WebP uploads each updated the test profile; the
+      aggregate after sequential uploads showed only the latest media object,
+      consistent with the previous object being removed.
+- [ ] Simulate failure to remove a previous avatar object and confirm the
+      failure is visible in sanitized operational logs.
 
 ### 9.3 Message and audit behavior
 
@@ -792,51 +884,111 @@ private conversations or production accounts.
 2. Use test users to verify rate-limit behavior, including a request that
    attempts to supply a stale `created_at` value if the client path allows
    testing it. The database must use server time for the inserted message.
-3. With privacy approval in staging, temporarily set
-   `security.configuration.audit_enabled = true`.
+3. [x] With privacy approval in staging, temporarily set
+   `security.configuration.audit_enabled = true`. On 2026-11-15, a
+   synthetic report was submitted while enabled, then audit logging was
+   returned to `false` immediately afterward.
 4. Submit a report, claim/resolve it as staff, add a staff note, perform a
    moderation action, change a test staff role/restriction, and submit a
    repeated identical message. Confirm expected event types and IDs.
-5. Confirm only the intended excerpts are present: at most 200 characters
-   from public post/comment text and report details. Never test with a real
-   private-message quote. Confirm full messages, staff-note bodies, raw
-   requests, filenames, IPs, and device IDs are absent.
-6. Read the dashboard as an admin and confirm events load.
-7. Read it as a non-admin user and non-admin moderator; access must be
-   denied by database policy, not merely hidden by the UI.
+5. [x] Confirm synthetic report and feed-post excerpts are capped and
+   prohibited metadata keys are absent. On 2026-11-15, the report excerpt
+   measured 15 characters and the feed-post excerpt measured 200; neither
+   audit record had the checked prohibited keys. No excerpt text was included
+   in the verification queries.
+   - [x] On 2026-11-15, a synthetic feed alert was inspected in private
+     Staging Discord: `@everyone` caused no ping, the example URL was
+     neutralized, and markdown was escaped. The post was deleted afterward.
+   - [x] On 2026-11-15, synthetic forum and comment excerpts were each
+     capped at 200 characters; the forum title was capped at 100. The
+     checked prohibited metadata keys were absent. Both Discord alerts
+     arrived with mentions suppressed, URLs neutralized, and markdown
+     escaped. The synthetic thread and comment were deleted afterward.
+   - [x] On 2026-11-15, a read-only key-name screen of all 20 Staging audit
+         events found zero metadata keys matching body/message/note/request,
+         filename, IP/device, credential, or detail patterns. The query did
+         not read metadata values and is not proof that every possible value
+         or delivered Discord payload is free of sensitive content.
+6. [x] Read the dashboard as an admin and confirm events load. On 2026-11-15,
+   the temporary synthetic Staging admin loaded the event list (16 rows).
+   The temporary admin role was removed after testing.
+7. [x] Read as a normal non-admin user; access was denied by the UI, and a
+   simulated authenticated-role query returned zero visible audit rows with
+   no insert, update, or delete privileges.
+   - [x] On 2026-11-15, a temporary `feed_moderator` Staging account opened
+     `/staff` without admin-only tabs. Under the simulated authenticated
+     moderator role, the audit query returned zero rows and insert privilege
+     was false. The temporary moderator role was removed afterward.
 8. Review a reported-message case and confirm the evidence access event is
    written while unrelated conversation history remains inaccessible.
-9. Return `audit_enabled` to `false` after the test if the staging approval
-   does not authorize ongoing collection.
+9. [x] Return `audit_enabled` to `false` immediately after the synthetic
+   report test. The user confirmed the Staging value is `false`.
 
 ### 9.4 Cleanup worker
 
-- [ ] Test an incorrect cleanup secret and confirm it is rejected.
-- [ ] In staging, create a clearly identified quarantine test object older
-      than one hour using an approved test method.
-- [ ] Invoke cleanup and confirm the stale object is removed and a
-      `quarantine_expired` event is attempted when audit logging is enabled.
+- [x] Confirm the hourly Staging cleanup schedule is active. On 2026-11-15,
+  `backline-avatar-quarantine-cleanup` was active at `0 * * * *`, and its
+  latest run showed `succeeded`.
+- [x] Create a clearly identified quarantine test object. The user uploaded
+  `synthetic-quarantine-cleanup-test-20261115.png` to the Staging
+  `avatar-quarantine` bucket root at `2026-11-15 05:51:48 UTC`.
+- [x] Verify actual expired-object deletion. At `2026-11-15 07:22:36 UTC`,
+  the object count was `0`; the cleanup job was active and its latest run
+  succeeded at `2026-11-15 07:00:00 UTC`, after the test object became older
+  than one hour. This confirms scheduled deletion in Staging. This check
+  does not verify whether a `quarantine_expired` audit event was written.
+- [x] Test an incorrect cleanup secret and confirm it is rejected. On
+      2026-11-15, a deliberately invalid dummy header received HTTP 401 with
+      `Not authorized.`; no real secret was sent.
 - [ ] Test a dataset large enough to hit the 1,000-object bound and confirm
       `more_pending` is reported and a subsequent run completes the backlog.
-- [ ] Confirm recent objects are not deleted.
+- [x] Confirm recent objects are not deleted. On 2026-11-15, after a
+      read-only count showed zero expired and zero recent quarantine objects,
+      the user uploaded the synthetic
+      `synthetic-quarantine-cleanup-test-20261115.png`. A manual Staging worker
+      invocation returned HTTP 200 with `inspected: 0`, `removed: 0`, and
+      `more_pending: false`; the user confirmed the object remained present.
+      The user then deleted only that test object and confirmed the bucket was
+      empty.
 - [ ] Confirm scheduler logs never contain the secret header.
 
 ### 9.5 Optional Discord alert worker
 
 Skip this section when Discord is not enabled.
 
-- [ ] Verify missing or incorrect worker secret is rejected.
+- [x] Verify missing worker secrets are rejected. The recorded Staging
+      unauthenticated smoke tests returned HTTP 503 while the worker secrets
+      were intentionally unset.
+- [x] Verify incorrect worker secrets are rejected. On 2026-11-15,
+      deliberately invalid dummy headers returned HTTP 401 with
+      `Not authorized.` from both Staging workers; no real secret was sent.
+- [x] On 2026-11-15, a synthetic `report.created` event was recorded while
+  audit logging was temporarily enabled, then audit logging was disabled.
+  The outbox showed `delivered` after one attempt, and the user confirmed the
+  alert arrived in the private Staging Discord channel. The event's excerpt
+  length was 15 characters; no prohibited metadata keys were present.
+- [x] On 2026-11-15, a synthetic `feed_post.created` alert was delivered to
+  Staging Discord; the excerpt was 200 characters, `@everyone` did not ping,
+  the example URL was neutralized, and markdown was escaped. The synthetic
+  post was deleted afterward, and `audit_enabled` was confirmed `false`.
 - [x] In staging, create one synthetic `report.created` event in a single
       transaction, turn audit collection back off, and manually invoke the
       worker. The worker returned HTTP 200 and reported processing two alerts;
       the user confirmed Discord messages arrived. A later aggregate query
       confirmed exactly two expected events, `report.created` / `discord_test`
       and `upload.rejected` / `invalid_image`, both marked delivered.
-- [ ] Confirm the alert contains only controlled metadata and `allowed_mentions`
-      is disabled.
-- [ ] Confirm public-content and report excerpts are capped at 200
-      characters, mentions and clickable URLs are neutralized, and no staff
-      notes, file bytes, or webhook URL are delivered.
+- [x] Confirm controlled Discord payload fields and mention suppression. On
+      2026-11-15, source review confirmed the worker builds embeds from
+      allow-listed event fields and sends `allowed_mentions: { parse: [] }`;
+      the webhook URL and file bytes are not part of the JSON body. The user
+      confirmed a synthetic `@everyone` post caused no ping in Staging.
+- [x] Confirm public-content and report excerpts are capped at 200 characters
+      and mentions/clickable URLs are neutralized. On 2026-11-15, Staging
+      records showed report excerpt length 15 and feed/forum/comment excerpt
+      lengths 200 (forum title 100); checked prohibited metadata keys were
+      absent. Delivered Discord examples escaped markdown and neutralized
+      URLs/mentions. Source review confirms staff-note bodies are not included
+      in the worker's embed fields.
 - [ ] Simulate a transient failure safely and verify attempt count, backoff,
       retry, and eventual delivery.
 - [ ] Simulate a permanent/exhausted failure and verify dead-letter state and
