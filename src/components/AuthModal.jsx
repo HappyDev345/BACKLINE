@@ -1,11 +1,11 @@
 // This pop-up lets a visitor sign in or create an account.
 // With no Supabase settings, it instead starts a temporary preview session.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { isDemoMode, supabase } from '../lib/supabase'
 import { getUserFacingError } from '../lib/errorMessages'
 
-export default function AuthModal({ open, onClose }) {
+export default function AuthModal({ open, onClose, initialMode = 'in' }) {
   const { signIn, signInAsDemoUser, signUp } = useAuth()
   const [mode, setMode] = useState('in')
   const [email, setEmail] = useState('')
@@ -15,6 +15,9 @@ export default function AuthModal({ open, onClose }) {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
+
+  // Each time the window opens, start on the form the visitor asked for (sign in or join).
+  useEffect(() => { if (open) setMode(initialMode) }, [open, initialMode])
 
   if (!open) return null
 

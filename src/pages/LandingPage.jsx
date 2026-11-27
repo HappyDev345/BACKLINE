@@ -7,58 +7,41 @@ import { isDemoMode, supabase } from '../lib/supabase'
 import { getUserFacingError } from '../lib/errorMessages'
 import Avatar from '../components/Avatar'
 import { timeAgo } from '../lib/utils'
-import logo from '../../BackLine-logo.png'
+import logo from '../../BackLine-favicon.png'
 import styles from './LandingPage.module.css'
+
+const unsplash = (id, w) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${w}&q=80`
 
 // Example listings are shown only in preview mode.
 const productions = [
-  {
-    title: 'Sydney Harbour Light Festival',
-    type: 'Festival',
-    date: '12–14 NOV 2026',
-    role: 'FOH Audio & Stage Production',
-    location: 'Circular Quay · Sydney',
-    crew: '6 crew on call',
-    image: 'https://images.unsplash.com/photo-1670028514318-0ac718c0590d?auto=format&fit=crop&w=900&q=80',
-  },
-  {
-    title: 'Sydney Coffee & Connect',
-    type: 'Community meetup',
-    date: '28 NOV 2026',
-    role: 'Lighting & Video Systems',
-    location: 'Martin Place · Sydney',
-    crew: '12 crew confirmed',
-    image: 'https://images.unsplash.com/photo-1573339887617-d674bc961c31?auto=format&fit=crop&w=900&q=80',
-  },
-  {
-    title: 'Foundry Sessions Live',
-    type: 'Live broadcast',
-    date: '06 DEC 2026',
-    role: 'Multi-camera Live Production',
-    location: 'Bondi · Sydney',
-    crew: '4 camera positions',
-    image: 'https://images.unsplash.com/photo-1631188769213-1f385e8544fa?auto=format&fit=crop&w=900&q=80',
-  },
+  { title: 'Sydney Harbour Light Festival', type: 'Festival', date: '12–14 Mar 2027', role: 'FOH Audio & Stage Production', location: 'Circular Quay · Sydney CBD', crew: '6 crew on call', image: unsplash('photo-1670028514318-0ac718c0590d', 900) },
+  { title: 'Sydney Coffee & Connect', type: 'Community meetup', date: '20 Feb 2027', role: 'Lighting & Video Systems', location: 'Martin Place · Sydney CBD', crew: '12 crew confirmed', image: unsplash('photo-1573339887617-d674bc961c31', 900) },
+  { title: 'Foundry Sessions Live', type: 'Live broadcast', date: '10 Apr 2027', role: 'Multi-camera Live Production', location: 'Bondi · Sydney', crew: '4 camera positions', image: unsplash('photo-1631188769213-1f385e8544fa', 900) },
+  { title: 'The Tempest', type: 'Theatre', date: '18–29 May 2027', role: 'Stage, Flys & Automation', location: 'Grand Theatre · Sydney', crew: '8 show crew', image: unsplash('photo-1744142474863-b1e2a44d530b', 900) },
 ]
 
+// Example profiles are shown only in preview mode.
 const crew = [
-  { name: 'Marcus Reed', role: 'FOH Engineer', location: 'Sydney, NSW', skills: ['D live', 'Touring', 'RF'], image: 'https://images.unsplash.com/photo-1649614808550-173678d92df1?auto=format&fit=crop&w=180&q=80', tone: 'blue' },
-  { name: 'Alex Chen', role: 'Lighting Designer', location: 'Alexandria, NSW', skills: ['grandMA3', 'WYSIWYG', 'Touring'], image: 'https://images.unsplash.com/photo-1637124395515-7433c77ac4db?auto=format&fit=crop&w=180&q=80', tone: 'purple' },
-  { name: 'Jamie Okafor', role: 'Camera Operator', location: 'Coogee, NSW', skills: ['Sony FX9', 'Jib', 'Broadcast'], image: 'https://images.unsplash.com/photo-1711473610014-0505db6f6702?auto=format&fit=crop&w=180&q=80', tone: 'orange' },
+  { name: 'Marcus Reed', role: 'Sound Engineer', location: 'Northbridge, NSW', skills: ['DiGiCo', 'RF', 'System tech'], availability: 'Available Feb', experience: '11 years experience', image: unsplash('photo-1649614808550-173678d92df1', 180) },
+  { name: 'Alex Chen', role: 'Lighting Designer', location: 'Alexandria, NSW', skills: ['grandMA3', 'WYSIWYG', 'Touring'], availability: 'Open to tour', experience: '8 years experience', image: unsplash('photo-1637124395515-7433c77ac4db', 180) },
+  { name: 'Jamie Okafor', role: 'Camera Operator', location: 'Coogee, NSW', skills: ['Sony FX9', 'Jib', 'Broadcast'], availability: 'Freelance', experience: '12 years experience', image: unsplash('photo-1711473610014-0505db6f6702', 180) },
+  { name: 'Maya Bennett', role: 'Stage Manager', location: 'Parramatta, NSW', skills: ['Show calling', 'Arena', 'Theatre'], availability: 'Available now', experience: '9 years experience', image: unsplash('photo-1635352210867-ad9cf78e00a1', 180) },
+  { name: 'Jordan Ellis', role: 'Event Producer', location: 'Castle Hill, NSW', skills: ['Festivals', 'Budgets', 'Crewing'], availability: 'Booking Q2', experience: '14 years experience', image: unsplash('photo-1682617367187-232f65e6e5df', 180) },
 ]
 
 // Example calls are shown only in preview mode.
 const calls = [
-  { department: 'LIGHTING', title: 'Lighting crew needed for a festival', location: 'Sydney, NSW', date: '12–14 Nov 2026', rate: 'A$450 / day', skills: ['grandMA3', 'IPAF', 'Outdoor'], tone: 'purple' },
-  { department: 'VIDEO', title: 'Camera operator required for a live broadcast', location: 'Alexandria, NSW', date: '06 Dec 2026', rate: 'A$400 / day', skills: ['Sony', 'Long lens', 'Comms'], tone: 'orange' },
-  { department: 'AUDIO', title: 'Monitor engineer needed for a touring show', location: 'UK & EU tour', date: '10–18 Dec 2026', rate: 'Tour rate', skills: ['DiGiCo', 'IEM', 'EU passport'], tone: 'blue' },
+  { department: 'Lighting', title: 'Lighting crew needed for a festival', location: 'Northbridge, NSW', date: 'Open, 12–14 Mar 2027', rate: 'A$320 / day', skills: ['grandMA3', 'IPAF', 'Outdoor'] },
+  { department: 'Video', title: 'Camera operator required for a live broadcast', location: 'Alexandria, NSW', date: 'Open, 10 Apr 2027', rate: 'A$400 / day', skills: ['Sony', 'Long lens', 'Comms'] },
+  { department: 'Audio', title: 'Monitor engineer needed for a touring show', location: 'UK & EU tour', date: 'Open, 21 Mar–18 Apr 2027', rate: 'A$450 / day', skills: ['DiGiCo', 'IEM', 'EU passport'] },
 ]
 
 // Example discussion titles are shown only in preview mode.
 const discussions = [
-  { category: 'AUDIO & SIGNAL', title: 'Best way to prep an RF coordination file for a festival?', replies: '18 replies', time: '2h ago', tone: 'blue' },
-  { category: 'LIGHTING & CONTROL', title: 'Showfile handover tips when joining a touring rig', replies: '12 replies', time: '5h ago', tone: 'purple' },
-  { category: 'VIDEO & PROJECTION', title: 'Reliable backup workflow for playback on show day', replies: '9 replies', time: '1d ago', tone: 'orange' },
+  { category: 'Sound', title: 'How are you handling RF coordination at multi-stage festivals?', meta: 'Sample thread · Join to reply' },
+  { category: 'Lighting', title: 'grandMA3 show-file workflows that survive a tour', meta: 'Sample thread · Join to reply' },
+  { category: 'Stage', title: 'Cue-calling tips for a first run in a new venue', meta: 'Sample thread · Join to reply' },
+  { category: 'Video', title: 'Comms and camera routing for small broadcast crews', meta: 'Sample thread · Join to reply' },
 ]
 
 function formatProductionDate(date) {
@@ -97,7 +80,7 @@ export default function LandingPage({ onSignIn }) {
           .from('projects')
           .select('id, title, type, event_date, roles, location, created_at')
           .order('created_at', { ascending: false })
-          .limit(3)
+          .limit(4)
 
         if (cancelled) return
         if (error) {
@@ -126,7 +109,7 @@ export default function LandingPage({ onSignIn }) {
           .from('profiles')
           .select('id, display_name, role_title, location, skills, avatar_url')
           .order('created_at', { ascending: false })
-          .limit(3)
+          .limit(5)
 
         if (error) throw error
         if (!cancelled) setLiveCrew(data || [])
@@ -161,7 +144,7 @@ export default function LandingPage({ onSignIn }) {
           .select('id, category, title, body, created_at, comments(count)')
           .not('category', 'is', null)
           .order('created_at', { ascending: false })
-          .limit(3)
+          .limit(4)
 
         if (error) throw error
         if (!cancelled) setLiveDiscussions(data || [])
@@ -189,58 +172,31 @@ export default function LandingPage({ onSignIn }) {
       <main>
         {/* Introduce the service and give visitors a direct route into projects or sign-up. */}
         <section className={styles.hero}>
-          <div className={`${styles.heroGlow} ${styles.heroGlowOne}`} />
-          <div className={`${styles.heroGlow} ${styles.heroGlowTwo}`} />
           <div className={`${styles.container} ${styles.heroGrid}`}>
             <div className={styles.heroCopy}>
-              <div className={styles.eyebrow}><span className={styles.liveDot} /> Built by crew, for crew</div>
-              <h1 className={styles.heroTitle}>The community behind <span className={styles.gradientText}>every live show.</span></h1>
-              <p className={styles.heroDescription}>Connect with the sound engineers, lighting technicians, camera operators, stage managers and producers who bring live events to life.</p>
+              <h1 className={styles.heroTitle}>The community behind every live show.</h1>
+              <p className={styles.heroDescription}>Find crew, find work and ask questions of the sound engineers, lighting technicians, camera operators, stage managers and producers who run live events.</p>
               <div className={styles.heroActions}>
-                <a className={`${styles.button} ${styles.primary}`} href="#productions">Explore live work <span aria-hidden="true">→</span></a>
+                <a className={`${styles.button} ${styles.primary}`} href="#productions">Browse productions</a>
                 {session
                   ? <Link className={`${styles.button} ${styles.secondary}`} to="/profile">Your crew profile</Link>
-                  : <button className={`${styles.button} ${styles.secondary}`} onClick={onSignIn}>Create your crew profile</button>}
-              </div>
-              <div className={styles.heroProof}>
-                {isDemoMode && <div className={styles.avatarStack} aria-hidden="true">
-                  {crew.map(person => <img key={person.name} src={person.image} alt="" />)}
-                </div>}
-                <div><strong>Made for live-event professionals</strong><span>from first call to final cue</span></div>
+                  : <button className={`${styles.button} ${styles.secondary}`} onClick={() => onSignIn('up')}>Create a crew profile</button>}
               </div>
             </div>
-            <div className={styles.heroVisual}>
-              <div className={styles.heroImageWrap}>
-                <img className={styles.heroImage} src="https://images.unsplash.com/photo-1606150119193-69ed87009dcf?auto=format&fit=crop&w=1200&q=85" alt="Production crew working at a live show" />
-                <div className={styles.imageShade} />
-                {isDemoMode && <>
-                  <div className={styles.imageLabel}><span>MAIN STAGE · SHOW FILE</span><strong>SYDNEY CBD</strong></div>
-                  <div className={styles.liveBadge}><span /> SHOW LIVE</div>
-                </>}
-                <div className={styles.productionLabels}><span>SOUND</span><span>LIGHTING</span><span>VIDEO</span><span>STAGE</span></div>
-              </div>
-              {isDemoMode && <>
-                <Link to="/discover" className={`${styles.floatingCard} ${styles.floatingProject}`}>
-                  <span className={`${styles.floatingIcon} ${styles.purple}`}>✦</span>
-                  <span><small>CREW CALL MATCH</small><strong>Lighting tech · Sydney</strong></span>
-                  <span aria-hidden="true">›</span>
-                </Link>
-                <div className={`${styles.floatingCard} ${styles.floatingCrew}`}>
-                  <div className={styles.miniAvatars}>{crew.slice(0, 2).map(person => <img key={person.name} src={person.image} alt="" />)}</div>
-                  <span><strong>All departments</strong><small>on comms for this show</small></span>
-                </div>
-              </>}
-            </div>
+            <figure className={styles.heroFigure}>
+              <img className={styles.heroImage} src={unsplash('photo-1606150119193-69ed87009dcf', 1200)} alt="Production professional working at a live show" />
+              <figcaption>Front of house, Sydney CBD. Stock photo.</figcaption>
+            </figure>
           </div>
-          <div className={`${styles.container} ${styles.disciplineBar}`}><span>LIVE WORK ACROSS</span><strong>Concerts</strong><i /><strong>Festivals</strong><i /><strong>Theatre</strong><i /><strong>Corporate</strong><i /><strong>Broadcast</strong></div>
+          <p className={`${styles.container} ${styles.disciplines}`}>Concerts, festivals, theatre, corporate events and broadcast.</p>
         </section>
 
         {/* Preview cards stay illustrative; live mode reads public projects from Supabase. */}
         <section className={styles.section} id="productions">
           <div className={styles.container}>
             <div className={styles.sectionHead}>
-              <div><div className={styles.sectionKicker}>ON THE CALL SHEET</div><h2 className={styles.sectionTitle}>Featured live productions</h2><p className={styles.sectionSubtitle}>{isDemoMode ? 'Example call-sheet previews. Browse current projects from the community.' : 'Recent crew calls posted by the community.'}</p></div>
-              <Link className={styles.textLink} to="/discover">Explore all projects <span aria-hidden="true">→</span></Link>
+              <div><h2 className={styles.sectionTitle}>Featured live productions</h2><p className={styles.sectionSubtitle}>{isDemoMode ? 'Sample shows and listings that bring live productions together.' : 'Recent crew calls posted by the community.'}</p></div>
+              <Link className={styles.textLink} to="/discover">Explore all projects</Link>
             </div>
             <div className={styles.gigGrid}>
               {productionsLoading && <p className={styles.productionsMessage} role="status">Loading featured productions…</p>}
@@ -258,10 +214,9 @@ export default function LandingPage({ onSignIn }) {
                   <article className={styles.gigCard} key={production.id || production.title}>
                     <div className={styles.gigImageWrap}>
                       {demoProduction
-                        ? <img className={styles.gigImage} src={production.image} alt="" loading="lazy" />
+                        ? <img className={styles.gigImage} src={production.image} alt={`${production.title} production`} loading="lazy" />
                         : <div className={styles.productionPlaceholder} aria-hidden="true">BACKLINE</div>}
-                      <div className={styles.gigGradient} />
-                      <span className={`${styles.categoryPill} ${styles[`category${index}`]}`}>{production.type}</span>
+                      <span className={styles.categoryPill}>{production.type}</span>
                       <span className={styles.gigDate}>{date}</span>
                     </div>
                     <div className={styles.gigBody}>
@@ -269,8 +224,8 @@ export default function LandingPage({ onSignIn }) {
                       <h3 className={styles.gigTitle}>{production.title}</h3>
                       <div className={styles.venueName}>{location}</div>
                       <div className={styles.gigFooter}>
-                        <span className={styles.crewChip}><span className={styles.crewOrb}>♧</span>{demoProduction ? production.crew : `${production.roles?.length || 0} roles listed`}</span>
-                        <Link className={styles.viewShow} to="/discover">Explore <span aria-hidden="true">›</span></Link>
+                        <span className={styles.crewChip}>{demoProduction ? production.crew : `${production.roles?.length || 0} roles listed`}</span>
+                        <Link className={styles.viewShow} to="/discover">View show</Link>
                       </div>
                     </div>
                   </article>
@@ -282,24 +237,23 @@ export default function LandingPage({ onSignIn }) {
 
         <section className={`${styles.section} ${styles.sectionTinted}`} id="crew">
           <div className={styles.container}>
-            <div className={styles.sectionHead}><div><div className={styles.sectionKicker}>THE PEOPLE BEHIND THE SHOW</div><h2 className={styles.sectionTitle}>Meet your next crew mate</h2><p className={styles.sectionSubtitle}>{isDemoMode ? 'Example profiles showing the range of roles and skills you can find in the community.' : 'Crew profiles from the BACKLINE community.'}</p></div><Link className={styles.textLink} to="/people">Find crew <span aria-hidden="true">→</span></Link></div>
+            <div className={styles.sectionHead}><div><h2 className={styles.sectionTitle}>Featured crew</h2><p className={styles.sectionSubtitle}>{isDemoMode ? 'Example profiles showing crew skills, specialties, and availability.' : 'Crew profiles from the BACKLINE community.'}</p></div><Link className={styles.textLink} to="/people">Find crew</Link></div>
             <div className={styles.crewGrid}>
               {!isDemoMode && crewLoading && <p className={styles.productionsMessage} role="status">Loading crew profiles…</p>}
               {!isDemoMode && crewError && <p className={styles.productionsMessage} role="alert">{crewError}</p>}
               {!isDemoMode && !crewLoading && !crewError && featuredCrew.length === 0 && <p className={styles.productionsMessage}>No crew profiles yet. Be one of the first to join the community.</p>}
-              {featuredCrew.map((person, index) => {
+              {featuredCrew.map((person) => {
                 const demoPerson = isDemoMode
                 const name = demoPerson ? person.name : person.display_name || 'Unnamed crew member'
-                const tone = demoPerson ? person.tone : ['blue', 'purple', 'orange'][index % 3]
                 const profile = demoPerson
                   ? { display_name: person.name, avatar_url: person.image }
                   : person
 
                 return (
-                  <article className={`${styles.crewCard} ${styles[`crew${tone[0].toUpperCase()}${tone.slice(1)}`]}`} key={person.id || name}>
-                    <div className={styles.crewTop}><div className={styles.portraitWrap}><Avatar profile={profile} size="lg" />{demoPerson && <span className={styles.statusDot} />}</div>{demoPerson && <span className={styles.availability}>Available for work</span>}</div>
-                    <div className={styles.crewInfo}><h3 className={styles.crewName}>{name}</h3><div className={styles.crewRole}>{demoPerson ? person.role : person.role_title || 'Crew member'}</div><div className={styles.crewLocation}>⌖ {person.location || 'Location not set'}</div><div className={styles.skillList}>{(person.skills || []).map(skill => <span key={skill}>{skill}</span>)}</div></div>
-                    <div className={styles.crewBottom}><span>{demoPerson ? 'AV professional' : 'CREW PROFILE'}</span><Link className={styles.profileAction} to={demoPerson ? '/people' : `/profile/${person.id}`}>{demoPerson ? 'View people' : 'View profile'} <span aria-hidden="true">→</span></Link></div>
+                  <article className={styles.crewCard} key={person.id || name}>
+                    <div className={styles.crewTop}><div className={styles.portraitWrap}><Avatar profile={profile} size="lg" /></div>{demoPerson && <span className={styles.availability}>{person.availability}</span>}</div>
+                    <div className={styles.crewInfo}><h3 className={styles.crewName}>{name}</h3><div className={styles.crewRole}>{demoPerson ? person.role : person.role_title || 'Crew member'}</div><div className={styles.crewLocation}>{person.location || 'Location not set'}</div><div className={styles.skillList}>{(person.skills || []).map(skill => <span key={skill}>{skill}</span>)}</div></div>
+                    <div className={styles.crewBottom}><span>{demoPerson ? person.experience : 'Crew profile'}</span><Link className={styles.profileAction} to={demoPerson ? '/people' : `/profile/${person.id}`}>View profile</Link></div>
                   </article>
                 )
               })}
@@ -307,23 +261,22 @@ export default function LandingPage({ onSignIn }) {
           </div>
         </section>
 
-        <section className={`${styles.section} ${styles.crewCallsSection}`} id="calls">
+        <section className={styles.section} id="calls">
           <div className={styles.container}>
-            <div className={styles.sectionHead}><div><div className={styles.sectionKicker}>YOUR NEXT CALL TIME</div><h2 className={styles.sectionTitle}>Crew calls worth a look</h2><p className={styles.sectionSubtitle}>{isDemoMode ? 'Example calls for a preview. Find current opportunities in projects.' : 'Recent opportunities posted by the BACKLINE community.'}</p></div><Link className={styles.textLink} to="/discover">Browse projects <span aria-hidden="true">→</span></Link></div>
+            <div className={styles.sectionHead}><div><h2 className={styles.sectionTitle}>Example crew calls</h2><p className={styles.sectionSubtitle}>{isDemoMode ? 'Illustrative listings of the work BACKLINE is designed to help crews find.' : 'Recent opportunities posted by the BACKLINE community.'}</p></div><Link className={styles.textLink} to="/discover">Browse projects</Link></div>
             <div className={styles.callsList}>
               {!isDemoMode && callsLoading && <p className={styles.productionsMessage} role="status">Loading crew calls…</p>}
               {!isDemoMode && callsError && <p className={styles.productionsMessage} role="alert">{callsError}</p>}
               {!isDemoMode && !callsLoading && !callsError && featuredCalls.length === 0 && <p className={styles.productionsMessage}>No crew calls yet. Check back soon or browse all projects.</p>}
-              {featuredCalls.map((call, index) => {
+              {featuredCalls.map((call) => {
                 const demoCall = isDemoMode
-                const tone = demoCall ? call.tone : ['purple', 'orange', 'blue'][index % 3]
                 const callSkills = demoCall ? call.skills : call.roles || []
 
                 return (
                   <article className={styles.callCard} key={call.id || call.title}>
-                    <div className={`${styles.callDepartment} ${styles[`call${tone[0].toUpperCase()}${tone.slice(1)}`]}`}><span aria-hidden="true">✳</span>{demoCall ? call.department : (call.type || 'CREW CALL').toUpperCase()}</div>
-                    <div className={styles.callMain}><h3 className={styles.callTitle}>{call.title}</h3><div className={styles.callDetails}><span>⌖ {call.location || 'Location TBC'}</span><span>▣ {demoCall ? call.date : formatProductionDate(call.event_date)}</span><strong>{demoCall ? call.rate : call.compensation || 'Rate TBC'}</strong></div><div className={`${styles.skillList} ${styles.callSkills}`}>{callSkills.length > 0 ? callSkills.map(skill => <span key={skill}>{skill}</span>) : <span>Roles not listed</span>}</div></div>
-                    <Link className={`${styles.button} ${styles.secondary} ${styles.callAction}`} to="/discover">View projects <span aria-hidden="true">→</span></Link>
+                    <div className={styles.callDepartment}>{demoCall ? call.department : (call.type || 'Crew call')}</div>
+                    <div className={styles.callMain}><h3 className={styles.callTitle}>{call.title}</h3><div className={styles.callDetails}><span>{call.location || 'Location TBC'}</span><span>{demoCall ? call.date : formatProductionDate(call.event_date)}</span><strong>{demoCall ? call.rate : call.compensation || 'Rate TBC'}</strong></div><div className={`${styles.skillList} ${styles.callSkills}`}>{callSkills.length > 0 ? callSkills.map(skill => <span key={skill}>{skill}</span>) : <span>Roles not listed</span>}</div></div>
+                    <Link className={`${styles.button} ${styles.secondary} ${styles.callAction}`} to="/discover">View call</Link>
                   </article>
                 )
               })}
@@ -331,33 +284,25 @@ export default function LandingPage({ onSignIn }) {
           </div>
         </section>
 
-        <section className={`${styles.section} ${styles.forumSection}`} id="forum">
+        <section className={styles.section} id="forum">
           <div className={`${styles.container} ${styles.forumLayout}`}>
-            <div className={styles.forumIntro}><div className={styles.sectionKicker}>BACKSTAGE DISCUSSIONS</div><h2 className={styles.sectionTitle}>Practical answers from people on the ground.</h2><p className={styles.sectionSubtitle}>{isDemoMode ? 'Example topics for a preview. Ask questions and compare workflows in the community forum.' : 'Recent questions and knowledge shared by the BACKLINE community.'}</p><Link className={`${styles.button} ${styles.secondary}`} to="/forum">Join the discussion <span aria-hidden="true">→</span></Link></div>
+            <div className={styles.forumIntro}><h2 className={styles.sectionTitle}>Practical answers from people on the ground.</h2><p className={styles.sectionSubtitle}>{isDemoMode ? 'Ask questions, compare workflows, and learn from people who understand the pressure of show day.' : 'Recent questions and knowledge shared by the BACKLINE community.'}</p><Link className={`${styles.button} ${styles.secondary}`} to="/forum">Join the discussion</Link></div>
             <div className={styles.discussionList}>
               {!isDemoMode && discussionsLoading && <p className={styles.productionsMessage} role="status">Loading discussions…</p>}
               {!isDemoMode && discussionsError && <p className={styles.productionsMessage} role="alert">{discussionsError}</p>}
               {!isDemoMode && !discussionsLoading && !discussionsError && featuredDiscussions.length === 0 && <p className={styles.productionsMessage}>No discussions yet. Start the first conversation in the forum.</p>}
-              {featuredDiscussions.map((discussion, index) => {
+              {featuredDiscussions.map((discussion) => {
                 const demoDiscussion = isDemoMode
-                const tone = demoDiscussion ? discussion.tone : ['blue', 'purple', 'orange'][index % 3]
                 const title = demoDiscussion ? discussion.title : discussion.title || discussion.body
                 const meta = demoDiscussion
-                  ? discussion.replies
-                  : `${discussion.comments?.[0]?.count || 0} replies`
+                  ? discussion.meta
+                  : `${discussion.comments?.[0]?.count || 0} replies · ${timeAgo(discussion.created_at)}`
 
                 return (
                   <Link className={styles.discussionCard} to="/forum" key={discussion.id || title}>
-                    <span className={`${styles.discussionNumber} ${styles[`number${tone[0].toUpperCase()}${tone.slice(1)}`]}`}>0{index + 1}</span>
-                    <span className={styles.discussionContent}>
-                      <span className={styles.discussionTopline}>
-                        <span className={styles.discussionTag}>{discussion.category}</span>
-                        <span className={styles.discussionTime}>{demoDiscussion ? discussion.time : timeAgo(discussion.created_at)}</span>
-                      </span>
-                      <strong className={styles.discussionTitle}>{title}</strong>
-                      <span className={styles.discussionMeta}>{meta}</span>
-                    </span>
-                    <span className={styles.discussionArrow} aria-hidden="true">›</span>
+                    <span className={styles.discussionTag}>{discussion.category}</span>
+                    <strong className={styles.discussionTitle}>{title}</strong>
+                    <span className={styles.discussionMeta}>{meta}</span>
                   </Link>
                 )
               })}
@@ -367,7 +312,7 @@ export default function LandingPage({ onSignIn }) {
 
         {/* Repeat the invitation at the bottom for visitors who reach the footer. */}
         <section className={styles.ctaSection}>
-          <div className={`${styles.container} ${styles.ctaInner}`}><div className={styles.ctaGlow} /><span className={styles.ctaIcon} aria-hidden="true">⌁</span><h2 className={styles.ctaTitle}>Find your people. Build the show.</h2><p className={styles.ctaCopy}>Join the backstage network built for the people who make live events possible.</p>{session ? <Link className={`${styles.button} ${styles.light}`} to="/feed">Open the community <span aria-hidden="true">→</span></Link> : <button className={`${styles.button} ${styles.light}`} onClick={onSignIn}>Join BACKLINE <span aria-hidden="true">→</span></button>}</div>
+          <div className={`${styles.container} ${styles.ctaInner}`}><h2 className={styles.ctaTitle}>Find your people. Build the show.</h2><p className={styles.ctaCopy}>Join the backstage network built for the people who make live events possible.</p>{session ? <Link className={`${styles.button} ${styles.light}`} to="/feed">Open the community</Link> : <button className={`${styles.button} ${styles.light}`} onClick={() => onSignIn('up')}>Join BACKLINE</button>}</div>
         </section>
       </main>
 

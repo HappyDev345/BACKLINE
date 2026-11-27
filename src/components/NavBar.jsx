@@ -7,7 +7,7 @@ import { useDemoData } from '../context/DemoContext'
 import { getUserFacingError } from '../lib/errorMessages'
 import Avatar from './Avatar'
 import ProfileBadges from './ProfileBadges'
-import logo from '../../BackLine-logo.png'
+import logo from '../../BackLine-favicon.png'
 
 export default function NavBar({ onSignIn }) {
   const { session, profile, staffRoles, loading, signOut } = useAuth()
@@ -111,7 +111,10 @@ export default function NavBar({ onSignIn }) {
                 {notificationError && <span className="error-text" role="alert">{notificationError}</span>}
               </div>
             ) : !loading ? (
-              <button className="nav-sign-in" onClick={() => { setMenuOpen(false); onSignIn() }}>Sign in</button>
+              <>
+                <button className="nav-sign-in" onClick={() => { setMenuOpen(false); onSignIn('in') }}>Sign in</button>
+                <button className="btn nav-join" onClick={() => { setMenuOpen(false); onSignIn('up') }}>Join the Crew</button>
+              </>
             ) : null}
           </div>
         </div>

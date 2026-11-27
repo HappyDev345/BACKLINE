@@ -1,0 +1,17 @@
+Hosting: yes, Vercel + Supabase is a solid choice. Loads of real apps use exactly that combo, and the free tiers are plenty for a major work. You don't need to switch.
+
+Logins: let Supabase Auth do the hard part (password storage, sessions, email confirmation). Never build your own password system. Turn on email confirmation in the Auth settings so people have to own the email they sign up with.
+
+Data: the big one is Row Level Security (RLS) 🔐
+Your anon key is meant to be public (it ships to every browser), so what actually protects your data is RLS. Check these yourself:
+In Supabase, is RLS turned on for every table? Without it, anyone with the anon key can read or change everything.
+For each table, ask: who should be able to read this row, and who should be able to change it? Then write a policy for each answer. For example: "anyone signed in can read posts, but only the author can edit or delete their own".
+Test it: sign in as two different sample users and try to edit the other person's stuff. It should fail.
+
+Keys:
+• Only the URL and anon key go in VITE_ variables or Vercel.
+• The service_role key must never be in your frontend code or any VITE_ variable. It skips all your RLS.
+• Make sure .env is in .gitignore so it never gets committed to GitHub.
+• (And don't send me any of your keys either 🙂)
+
+Bonus points for your write-up: only collect the data you actually need, and say in your documentation how you protect it. Markers love seeing that you thought about privacy.

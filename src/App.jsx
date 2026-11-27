@@ -22,7 +22,9 @@ import { isDemoMode } from './lib/supabase'
 export default function App() {
   // The same sign-in window can be opened from any page using this helper.
   const [authOpen, setAuthOpen] = useState(false)
-  const promptSignIn = () => setAuthOpen(true)
+  const [authMode, setAuthMode] = useState('in')
+  // Pass 'up' to open the sign-up form; anything else (including click events) opens sign-in.
+  const promptSignIn = (mode) => { setAuthMode(mode === 'up' ? 'up' : 'in'); setAuthOpen(true) }
   const { pathname } = useLocation()
   const isLandingPage = pathname === '/'
 
@@ -51,7 +53,7 @@ export default function App() {
         <Route path="*" element={<div className="auth-prompt"><h2>That page is off the call sheet</h2><p>We couldn’t find that page.</p><Link className="btn" style={{ display: 'inline-block', marginTop: 16, textDecoration: 'none' }} to="/">Back to BACKLINE</Link></div>} />
       </Routes>
       {/* Keep one sign-in window mounted here so every page opens the same one. */}
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+      <AuthModal open={authOpen} initialMode={authMode} onClose={() => setAuthOpen(false)} />
       {!isLandingPage && <footer>BACKLINE · Connecting the people who make productions happen.</footer>}
     </>
   )
