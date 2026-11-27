@@ -3,6 +3,33 @@
 Notable changes to BACKLINE are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [1.9.0] - 2026-11-28
+
+- Redesigned the whole site to match the flat style of the static Simple-Backline
+  site: a darker palette, one solid blue, 4–6px corners, and no gradients, glows,
+  blur effects or hover lift. The shared colour and radius variables in
+  `index.css` were updated, so every page picks up the new look. This replaces
+  the 1.8.1 button change across the site.
+- Rebuilt the landing page and About page in the new style. Sample content now
+  matches the static site: four productions, five crew profiles, three crew
+  calls, four discussion threads, and 2027 dates. Removed the decorative
+  labels, floating cards and gradient headline text. Live data loading is
+  unchanged except that the landing page now loads 4 productions, 5 crew
+  profiles and 4 discussions to fill the new layouts.
+- Updated the navigation bar with a solid background, underline-on-hover links
+  and the new favicon as the logo. Signed-out visitors now see "Sign in" and a
+  "Join the Crew" button.
+- Added an `initialMode` option to the sign-in window so "Join the Crew",
+  "Create a crew profile" and "Join BACKLINE" open on the sign-up form. All
+  other entry points still open on sign-in.
+- Avatars are now rounded squares instead of circles. Purple accents now use
+  the site's blue, and the sign-in window no longer fades in or blurs the page.
+- Added `BackLine-favicon.png` as the brand mark and browser tab icon.
+  `BackLine-logo.png` is no longer used by the app.
+- No changes to authentication, data access, security logging, avatar
+  handling or the database.
+
+
 ## [1.8.1] - 2026-11-15
 
 - Replaced gradients on action buttons with a solid blue background and
